@@ -113,6 +113,15 @@ export function DashboardSidebar() {
     return () => window.clearTimeout(timeoutId);
   }, []);
 
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isSidebarOpen]);
+
   return (
     <>
       <button
@@ -136,7 +145,7 @@ export function DashboardSidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface px-4 py-6 shadow-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:self-start lg:translate-x-0 lg:shadow-none ${isCollapsed ? "lg:w-20" : "lg:w-64"} ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col overflow-y-auto overscroll-contain border-r border-border bg-surface px-4 py-6 shadow-xl transition-[width,transform] duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:self-start lg:translate-x-0 lg:shadow-none ${isCollapsed ? "lg:w-20" : "lg:w-64"} ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         id="main-sidebar"
