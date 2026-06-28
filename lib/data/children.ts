@@ -1,0 +1,29 @@
+import type { Child } from "@/components/children/types";
+
+export const childrenData: Child[] = [
+  {
+    id: "e1326b4f-245f-4f82-8864-82c2f7b9949b",
+    posyandu_id: "0feba6ce-7505-4ffd-8971-67a77186fcce",
+    kelurahan_id: "4c951fa8-eda1-46e7-b951-97581708a0e1",
+    nik_anak: "3174085204240001",
+    nama_anak: "Almahyra Nafisha Darma",
+    nomor_kk: "3174082109210013",
+    no_urut_anak: 2,
+    tanggal_lahir: "2024-04-12",
+    jenis_kelamin: "P",
+    nama_ayah: "Ahmad Zulfikri",
+    nama_ibu: "Chairun Nisa",
+    nik_ortu: "3174082107980003",
+    no_hp_ayah: "0811251132",
+    no_hp_ibu: "081212123123",
+    alamat: "Jl. Pengadegan Utara",
+    rt: "001",
+    rw: "08",
+    created_at: "2026-06-21T15:03:38.590104+00:00",
+    registered_at: "2026-06-21T15:03:38.590104+00:00",
+    updated_at: "2026-06-21T15:03:38.590104+00:00",
+    hp_ortu: "087875336834",
+    nama_posyandu: "Mangga",
+    nama_kelurahan: "Pengadegan",
+  },
+];
