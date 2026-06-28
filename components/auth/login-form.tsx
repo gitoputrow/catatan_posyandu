@@ -23,7 +23,7 @@ export function LoginForm() {
   }
 
   return (
-    <Form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+    <Form className="mt-6 space-y-5" onSubmit={handleSubmit}>
       <FormField autoComplete="email" id="email" label="Email" name="email" placeholder="nama@email.com" required type="email" />
 
       <div>
@@ -87,7 +87,7 @@ export function LoginForm() {
         </div>
       </div>
 
-      <label className="flex cursor-pointer items-center gap-2.5 text-sm text-text-secondary">
+      <label className="flex cursor-pointer items-center mt-1.5 gap-2.5 text-sm text-text-secondary">
         <input
           className="size-4 rounded border-border accent-primary"
           name="remember"
@@ -102,7 +102,7 @@ export function LoginForm() {
         </p>
       )}
 
-      <Button className="w-full" isLoading={isLoading} size="lg" type="submit">
+      <Button className="w-full mt-3" isLoading={isLoading} size="lg" type="submit">
         Masuk ke Dashboard
       </Button>
     </Form>

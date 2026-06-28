@@ -9,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <main className="bg-background px-5 py-6 sm:px-6 lg:flex lg:items-stretch lg:p-6">
-      <section className="relative hidden overflow-hidden rounded-2xl bg-primary p-12 text-white lg:grid lg:w-1/2 lg:grid-rows-[auto_minmax(0,1fr)_auto] xl:px-12 xl:py-10">
+    <main className="bg-background lg:flex lg:items-stretch0">
+      <section className="min-h-screen relative hidden overflow-hidden bg-primary p-12 text-white lg:grid lg:w-1/2 lg:grid-rows-[auto_minmax(0,1fr)_auto] xl:px-12 xl:py-10">
         <div className="absolute -right-20 -top-20 size-80 rounded-full bg-secondary/35" />
         <div className="absolute -bottom-32 -left-24 size-96 rounded-full border-[40px] border-white/10" />
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
         </p>
       </section>
 
-      <section className="mx-auto flex w-full max-w-md flex-col justify-center lg:w-1/2 lg:max-w-none lg:px-12 xl:px-24">
+      <section className="mx-auto flex w-full  flex-col justify-center p-6 lg:w-1/2 lg:max-w-none lg:px-12 xl:px-24">
         <div className="lg:max-w-md">
           <Image
             alt="CatatanPosyandu"
@@ -52,10 +52,10 @@ export default function LoginPage() {
             src="/logo/logo_with_text_2.png"
             width={1000}
           />
-          <p className="mt-4 text-sm font-semibold text-primary lg:mt-0">
+          <p className="mt-4 text-xs sm:text-sm font-semibold text-primary lg:mt-0">
             SELAMAT DATANG KEMBALI
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-text-primary">
+          <h1 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-text-primary">
             Masuk ke akun Anda
           </h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
