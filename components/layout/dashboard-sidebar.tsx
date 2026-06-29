@@ -26,11 +26,6 @@ const navigationItems: NavigationItem[] = [
     label: "Dashboard",
     icon: <GridIcon />,
   },
-  {
-    href: "/posyandus",
-    label: "Posyandu",
-    icon: <HomeIcon />,
-  },
 ];
 
 const navigationGroups: NavigationGroup[] = [
@@ -415,21 +410,6 @@ function ScaleIcon() {
       <rect height="15" rx="3" width="16" x="4" y="5" />
       <path d="M8 12a4 4 0 018 0M12 12l2-2" />
       <path d="M7 20h10" />
-    </svg>
-  );
-}
-
-function HomeIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      viewBox="0 0 24 24"
-    >
-      <path d="M3 10.5L12 3l9 7.5V21H3z" />
-      <path d="M9 21v-6h6v6" />
     </svg>
   );
 }

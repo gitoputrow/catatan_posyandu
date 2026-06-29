@@ -53,7 +53,7 @@ export function GrowthRecordManager() {
       : today.getFullYear(),
   );
   const [records, setRecords] = useState<GrowthRecordViewModel[]>([]);
-  const [total, setTotal] = useState(0);
+  const [recordedCount, setRecordedCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
@@ -81,7 +81,7 @@ export function GrowthRecordManager() {
         try {
           const result = await getGrowthRecords(page, pageSize, month, year, debouncedQuery);
           setRecords(result.data);
-          setTotal(result.total);
+          setRecordedCount(result.recordedCount);
           setTotalPages(result.totalPages);
         } catch (loadError) {
           setError(
@@ -221,7 +221,7 @@ export function GrowthRecordManager() {
           <div>
             <h2 className="font-bold text-text-primary">Data Pertumbuhan</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              {total} balita terdaftar
+              {recordedCount} balita melakukan pencatatan
             </p>
           </div>
           <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[9rem_7rem_18rem]">

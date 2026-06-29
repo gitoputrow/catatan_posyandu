@@ -112,11 +112,24 @@ export async function listGrowthRecords(
   const filteredQuery = safeSearch
     ? query.ilike("nama_anak", `%${safeSearch}%`)
     : query;
-  const { data: children, error, count } = await filteredQuery
-    .order("nama_anak", { ascending: true })
-    .range(from, from + limit - 1);
+  const [childrenResult, recordedResult] = await Promise.all([
+    filteredQuery
+      .order("nama_anak", { ascending: true })
+      .range(from, from + limit - 1),
+    supabase
+      .from(tableName)
+      .select("balita_id")
+      .eq("posyandu_id", posyanduId)
+      .gte("periode_bulan", periodStart)
+      .lt("periode_bulan", periodEnd)
+      .or("berat_badan.not.is.null,tinggi_badan.not.is.null,lingkar_kepala.not.is.null,lingkar_lengan.not.is.null"),
+  ]);
+  const { data: children, error, count } = childrenResult;
+  const recordedCount = new Set((recordedResult.data ?? []).map((record) => record.balita_id)).size;
 
-  if (error || !children?.length) return { data: [], error, count };
+  if (error || recordedResult.error || !children?.length) {
+    return { data: [], error: error ?? recordedResult.error, count, recordedCount };
+  }
 
   const childIds = children.map((child) => child.id);
   const { data: measurements, error: measurementError } = await supabase
@@ -125,7 +138,7 @@ export async function listGrowthRecords(
     .in("balita_id", childIds)
     .order("periode_bulan", { ascending: false });
 
-  if (measurementError) return { data: [], error: measurementError, count };
+  if (measurementError) return { data: [], error: measurementError, count, recordedCount };
 
   const measurementByChild = new Map<string, GrowthRecordModel>();
   for (const measurement of (measurements ?? []) as GrowthRecordModel[]) {
@@ -141,6 +154,7 @@ export async function listGrowthRecords(
     ),
     error: null,
     count,
+    recordedCount,
   };
 }
 

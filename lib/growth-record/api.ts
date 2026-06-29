@@ -21,6 +21,7 @@ export type PaginatedGrowthRecords = {
   limit: number;
   total: number;
   totalPages: number;
+  recordedCount: number;
 };
 
 export function getGrowthRecords(page = 1, limit = 10, month?: number, year?: number, search?: string) {
