@@ -16,14 +16,26 @@ export async function getAuthenticatedPetugas() {
 
   const { data: petugas, error: petugasError } = await supabase
     .from(tableName)
-    .select("posyandu_id")
+    .select("posyandu_id, jenis_petugas")
     .eq("auth_user_id", authData.user.id)
     .single();
 
   if (petugasError) throw petugasError;
   if (!petugas?.posyandu_id) throw new AuthorizationError();
 
-  return { supabase, posyanduId: petugas.posyandu_id as string };
+  return {
+    supabase,
+    posyanduId: petugas.posyandu_id as string,
+    role: String(petugas.jenis_petugas ?? ""),
+  };
+}
+
+export async function getAuthenticatedPetugasForWrite() {
+  const petugas = await getAuthenticatedPetugas();
+  if (petugas.role.toLowerCase() === "viewer") {
+    throw new AuthorizationError("Akun viewer hanya dapat melihat dan mengekspor data.");
+  }
+  return petugas;
 }
 
 export async function getUser() {

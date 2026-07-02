@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSummary } from "@/components/dashboard/dashboard-summary";
+import { GrowthTrendSummary } from "@/components/dashboard/growth-trend-summary";
 import { MonthlyWeighingChart } from "@/components/dashboard/monthly-weighing-chart";
 import type { DashboardData } from "@/components/dashboard/types";
 import { getDashboardData } from "@/lib/dashboard/api";
@@ -45,6 +46,12 @@ export function DashboardManager() {
       )}
 
       <DashboardSummary data={data} isLoading={isLoading} />
+      <GrowthTrendSummary
+        description="Menggunakan bulan penimbangan terbaru dan dibandingkan dengan pencatatan sebelumnya."
+        isLoading={isLoading}
+        periodLabel={formatPeriod(data?.growthTrendPeriod)}
+        trends={data?.growthTrends ?? null}
+      />
       <MonthlyWeighingChart
         data={data?.monthlyWeighings ?? []}
         isLoading={isLoading}
@@ -54,4 +61,11 @@ export function DashboardManager() {
       />
     </main>
   );
+}
+
+function formatPeriod(value: string | null | undefined) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
 }

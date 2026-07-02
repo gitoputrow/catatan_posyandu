@@ -6,6 +6,7 @@ export type User = {
     nama?:           string;
     no_hp?:          string;
     jenis_petugas?:  string;
+    role?:            string;
     is_active?:      boolean;
     created_at?:     Date;
     updated_at?:     Date;

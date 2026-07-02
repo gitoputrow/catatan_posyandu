@@ -1,16 +1,18 @@
 "use client";
 
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import { MetricChange } from "@/components/ui/metric-change";
 
 type GrowthRecordCardProps = {
   onAdd: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  readOnly?: boolean;
   record: GrowthRecordViewModel;
   referenceDate: Date;
 };
 
-export function GrowthRecordCard({ onAdd, onDelete, onEdit, record, referenceDate }: GrowthRecordCardProps) {
+export function GrowthRecordCard({ onAdd, onDelete, onEdit, readOnly = false, record, referenceDate }: GrowthRecordCardProps) {
   return (
     <article className="rounded-xl border border-border bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
@@ -18,19 +20,20 @@ export function GrowthRecordCard({ onAdd, onDelete, onEdit, record, referenceDat
           <h3 className="break-words text-sm font-extrabold leading-snug text-text-primary">{record.nama}</h3>
           <p className="mt-1.5 text-xs font-medium text-text-secondary">{record.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"} · {getAgeInMonths(record.tanggal_lahir, referenceDate)}</p>
         </div>
-        <GrowthRecordActions onAdd={onAdd} onDelete={onDelete} onEdit={onEdit} record={record} />
+        <GrowthRecordActions onAdd={onAdd} onDelete={onDelete} onEdit={onEdit} readOnly={readOnly} record={record} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <MetricCard label="Berat badan" unit="kg" value={record.berat_badan} />
-        <MetricCard label="Tinggi badan" unit="cm" value={record.tinggi_badan} />
-        <MetricCard label="Lingkar kepala" unit="cm" value={record.lingkar_kepala} />
-        <MetricCard label="Lingkar lengan" unit="cm" value={record.lingkar_lengan} />
+        <MetricCard change={record.perubahan_berat_badan} label="Berat badan" unit="kg" value={record.berat_badan} />
+        <MetricCard change={record.perubahan_tinggi_badan} label="Tinggi badan" unit="cm" value={record.tinggi_badan} />
+        <MetricCard change={record.perubahan_lingkar_kepala} label="Lingkar kepala" unit="cm" value={record.lingkar_kepala} />
+        <MetricCard change={record.perubahan_lingkar_lengan} label="Lingkar lengan" unit="cm" value={record.lingkar_lengan} />
       </div>
     </article>
   );
 }
 
-export function GrowthRecordActions({ onAdd, onDelete, onEdit, record }: Omit<GrowthRecordCardProps, "referenceDate">) {
+export function GrowthRecordActions({ onAdd, onDelete, onEdit, readOnly = false, record }: Omit<GrowthRecordCardProps, "referenceDate">) {
+  if (readOnly) return null;
   const hasMeasurement = [record.berat_badan, record.tinggi_badan, record.lingkar_kepala, record.lingkar_lengan].some((value) => value !== null);
   return <div className="flex shrink-0 justify-end gap-1">{hasMeasurement ? <>
     <button aria-label={`Edit catatan ${record.nama}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={onEdit} type="button"><EditIcon /></button>
@@ -38,8 +41,8 @@ export function GrowthRecordActions({ onAdd, onDelete, onEdit, record }: Omit<Gr
   </> : <button aria-label={`Tambah catatan ${record.nama}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={onAdd} type="button"><PlusIcon /></button>}</div>;
 }
 
-function MetricCard({ label, unit, value }: { label: string; unit: string; value: number | null }) {
-  return <div className="rounded-lg bg-background py-2"><p className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</p><p className="mt-1 text-xs font-extrabold text-text-primary">{value === null ? "-" : `${value} ${unit}`}</p></div>;
+function MetricCard({ change, label, unit, value }: { change?: number | null; label: string; unit: string; value: number | null }) {
+  return <div className="rounded-lg bg-background py-2"><p className="text-[10px] font-bold uppercase tracking-wide text-text-secondary">{label}</p><p className="mt-1 text-xs font-extrabold text-text-primary">{value === null ? "-" : `${value} ${unit}`}</p><MetricChange change={change} unit={unit} /></div>;
 }
 
 function getAgeInMonths(value: string, referenceDate: Date) {

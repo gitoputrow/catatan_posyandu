@@ -7,6 +7,7 @@ import { InformationGroup } from "@/components/reports/monthly-attendance/inform
 import type { MonthlyAttendanceReport } from "@/components/reports/monthly-attendance/types";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
+import { useCurrentUser } from "@/components/user/user-provider";
 import { getMonthlyAttendanceReport } from "@/lib/reports/monthly-attendance/api";
 import { exportMonthlyAttendanceReport } from "@/lib/reports/monthly-attendance/export";
 import { getUser } from "@/lib/user/api";
@@ -17,6 +18,7 @@ const monthNames = [
 ];
 
 export function MonthlyAttendanceManager() {
+  const { canManage } = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = new Date();
@@ -80,7 +82,7 @@ export function MonthlyAttendanceManager() {
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-[10rem_8rem]"><SearchableSelect ariaLabel="Pilih bulan" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} /><SearchableSelect ariaLabel="Pilih tahun" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} /></div>
           <Button disabled={!report?.savedReport || isExporting} onClick={() => void exportReport()} variant="outline">{isExporting ? "Mengekspor..." : "Export"}</Button>
-          <Button disabled={isLoading} onClick={() => router.push(`/reports/monthly-attendance/create?period=${year}-${String(month).padStart(2, "0")}`)}>{report?.savedReport ? "Edit" : "Tambah"}</Button>
+          {canManage && <Button disabled={isLoading} onClick={() => router.push(`/reports/monthly-attendance/create?period=${year}-${String(month).padStart(2, "0")}`)}>{report?.savedReport ? "Edit" : "Tambah"}</Button>}
         </div>
       </header>
 

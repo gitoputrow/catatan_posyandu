@@ -7,10 +7,11 @@ type ChildCardProps = {
   onDelete: (child: Child) => void;
   onEdit: (child: Child) => void;
   onOpen: () => void;
+  readOnly?: boolean;
   referenceDate: Date;
 };
 
-export function ChildCard({ child, onDelete, onEdit, onOpen, referenceDate }: ChildCardProps) {
+export function ChildCard({ child, onDelete, onEdit, onOpen, readOnly = false, referenceDate }: ChildCardProps) {
   return (
     <article className="rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-primary/5" role="button" tabIndex={0} onClick={onOpen} onKeyDown={(event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -23,10 +24,10 @@ export function ChildCard({ child, onDelete, onEdit, onOpen, referenceDate }: Ch
           <h3 className="break-words text-sm font-extrabold leading-snug text-text-primary">{child.nama_anak}</h3>
           <p className="mt-1 break-all font-mono text-xs text-text-secondary">{child.nik_anak || "-"}</p>
         </div>
-        <div className="flex shrink-0 justify-end gap-1">
+        {!readOnly && <div className="flex shrink-0 justify-end gap-1">
           <button aria-label={`Edit ${child.nama_anak}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={(event) => { event.stopPropagation(); onEdit(child); }} type="button"><EditIcon /></button>
           <button aria-label={`Hapus ${child.nama_anak}`} className="rounded-lg p-1.5 text-error transition hover:bg-error/10" onClick={(event) => { event.stopPropagation(); onDelete(child); }} type="button"><TrashIcon /></button>
-        </div>
+        </div>}
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <InfoCard label="Jenis kelamin" value={child.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"} />

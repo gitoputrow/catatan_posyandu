@@ -4,9 +4,12 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import { GrowthTrendSummary, type GrowthTrendData } from "@/components/dashboard/growth-trend-summary";
 import { GrowthRecordActions, GrowthRecordCard } from "@/components/growth-record/growth-record-card";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
+import { MetricChange } from "@/components/ui/metric-change";
+import { useCurrentUser } from "@/components/user/user-provider";
 import {
   createGrowthRecord,
   getAllGrowthRecords,
@@ -34,6 +37,7 @@ const monthNames = [
 ];
 
 export function GrowthRecordManager() {
+  const { canManage } = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedPage = Number(searchParams.get("page") ?? "1");
@@ -54,6 +58,7 @@ export function GrowthRecordManager() {
   );
   const [records, setRecords] = useState<GrowthRecordViewModel[]>([]);
   const [recordedCount, setRecordedCount] = useState(0);
+  const [growthTrends, setGrowthTrends] = useState<GrowthTrendData | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingRecord, setIsSavingRecord] = useState(false);
@@ -82,6 +87,7 @@ export function GrowthRecordManager() {
           const result = await getGrowthRecords(page, pageSize, month, year, debouncedQuery);
           setRecords(result.data);
           setRecordedCount(result.recordedCount);
+          setGrowthTrends(result.growthTrends);
           setTotalPages(result.totalPages);
         } catch (loadError) {
           setError(
@@ -201,7 +207,7 @@ export function GrowthRecordManager() {
 
   return (
     <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">PEMANTAUAN BALITA</p>
           <h1 className="mt-1 max-w-2xl text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
@@ -211,10 +217,26 @@ export function GrowthRecordManager() {
             Catat dan pantau hasil pengukuran pertumbuhan balita setiap bulan.
           </p>
         </div>
-        <Button disabled={isExporting} onClick={() => void exportGrowthRecords()} size="md" variant="outline">
-          {isExporting ? "Mengekspor..." : "Export Laporan"}
-        </Button>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+          <Button className="w-full sm:w-auto" disabled={isExporting} onClick={() => void exportGrowthRecords()} size="md" variant="outline">
+            {isExporting ? "Mengekspor..." : "Export Laporan"}
+          </Button>
+        </div>
       </header>
+
+      <section className="mt-8">
+        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-text-secondary">Periode data</p>
+        <div className="grid w-full grid-cols-2 gap-2 sm:w-fit sm:grid-cols-[10rem_8rem]">
+          <SearchableSelect ariaLabel="Pilih bulan" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
+          <SearchableSelect ariaLabel="Pilih tahun" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
+        </div>
+      </section>
+
+      <GrowthTrendSummary
+        isLoading={isLoading}
+        periodLabel={`${monthNames[month - 1]} ${year}`}
+        trends={growthTrends}
+      />
 
       <section className="mt-8 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
         <div className="flex flex-col gap-5 border-b border-border px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
@@ -224,10 +246,8 @@ export function GrowthRecordManager() {
               {recordedCount} balita melakukan pencatatan
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[9rem_7rem_18rem]">
-            <SearchableSelect ariaLabel="Pilih bulan" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
-            <SearchableSelect ariaLabel="Pilih tahun" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
-            <label className="relative block sm:col-span-2 lg:col-span-1">
+          <div className="w-full lg:w-72">
+            <label className="relative block">
               <span className="sr-only">Cari data pertumbuhan</span>
               <input
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10"
@@ -245,6 +265,7 @@ export function GrowthRecordManager() {
               onAdd={() => openRecordForm(record)}
               onDelete={() => void deleteGrowthRecord(record)}
               onEdit={() => openRecordForm(record)}
+              readOnly={!canManage}
               record={record}
               referenceDate={new Date(year, month, 0)}
             />
@@ -281,6 +302,7 @@ export function GrowthRecordManager() {
                   onAdd={() => openRecordForm(record)}
                   onDelete={() => void deleteGrowthRecord(record)}
                   onEdit={() => openRecordForm(record)}
+                  readOnly={!canManage}
                   record={record}
                   referenceDate={new Date(year, month, 0)}
                 />
@@ -325,7 +347,7 @@ export function GrowthRecordManager() {
           </div>
         )}
       </section>
-      {editingRecord && (
+      {canManage && editingRecord && (
         <GrowthRecordEditor
           isSaving={isSavingRecord}
           onClose={() => setEditingRecord(null)}
@@ -350,12 +372,14 @@ function GrowthRecordRow({
   onAdd,
   onDelete,
   onEdit,
+  readOnly,
   record,
   referenceDate,
 }: {
   onAdd: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  readOnly: boolean;
   record: GrowthRecordViewModel;
   referenceDate: Date;
 }) {
@@ -368,12 +392,12 @@ function GrowthRecordRow({
       <td className="px-3 py-3 text-xs font-medium">
         {getAgeInMonths(record.tanggal_lahir, referenceDate)}
       </td>
-      <MetricCell value={record.berat_badan} unit="kg" />
-      <MetricCell value={record.tinggi_badan} unit="cm" />
-      <MetricCell value={record.lingkar_kepala} unit="cm" />
-      <MetricCell value={record.lingkar_lengan} unit="cm" />
+      <MetricCell change={record.perubahan_berat_badan} value={record.berat_badan} unit="kg" />
+      <MetricCell change={record.perubahan_tinggi_badan} value={record.tinggi_badan} unit="cm" />
+      <MetricCell change={record.perubahan_lingkar_kepala} value={record.lingkar_kepala} unit="cm" />
+      <MetricCell change={record.perubahan_lingkar_lengan} value={record.lingkar_lengan} unit="cm" />
       <td className="px-3 py-3">
-        <GrowthRecordActions onAdd={onAdd} onDelete={onDelete} onEdit={onEdit} record={record} />
+        <GrowthRecordActions onAdd={onAdd} onDelete={onDelete} onEdit={onEdit} readOnly={readOnly} record={record} />
       </td>
     </tr>
   );
@@ -480,10 +504,11 @@ function InputField({
   );
 }
 
-function MetricCell({ value, unit }: { value: number | null; unit: string }) {
+function MetricCell({ change, value, unit }: { change?: number | null; value: number | null; unit: string }) {
   return (
     <td className="px-3 py-3 text-xs font-semibold">
       {value === null ? "-" : `${value} ${unit}`}
+      <MetricChange change={change} unit={unit} />
     </td>
   );
 }

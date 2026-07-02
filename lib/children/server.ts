@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Child } from "@/components/children/types";
-import { getAuthenticatedPetugas } from "@/lib/user/server";
+import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/user/server";
 
 const tableName = "balita";
 export const maxDisplayedAgeInMonths = 60;
@@ -43,7 +43,7 @@ export async function listChildren(
 }
 
 export async function createChild(child: ChildInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   return supabase
     .from(tableName)
     .insert({ ...child, posyandu_id: posyanduId, registered_at: new Date().toISOString() })
@@ -57,7 +57,7 @@ export async function findChildById(id: string) {
 }
 
 export async function updateChildById(id: string, child: Partial<ChildInput>) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const childData = { ...child };
   delete childData.posyandu_id;
   return supabase
@@ -70,7 +70,7 @@ export async function updateChildById(id: string, child: Partial<ChildInput>) {
 }
 
 export async function deleteChildById(id: string) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   return supabase.from(tableName).delete().eq("id", id).eq("posyandu_id", posyanduId).select("id").maybeSingle();
 }
 

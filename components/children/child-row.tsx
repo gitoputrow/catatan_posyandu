@@ -8,10 +8,11 @@ type ChildRowProps = {
   child: Child;
   onDelete: (child: Child) => void;
   onEdit: (child: Child) => void;
+  readOnly?: boolean;
   referenceDate: Date;
 };
 
-export function ChildRow({ child, onDelete, onEdit, referenceDate }: ChildRowProps) {
+export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceDate }: ChildRowProps) {
   const router = useRouter();
 
   return (
@@ -41,7 +42,7 @@ export function ChildRow({ child, onDelete, onEdit, referenceDate }: ChildRowPro
       <td className="px-3 py-3 text-xs text-text-secondary">{child.rt}</td>
       <td className="px-3 py-3 text-xs text-text-secondary">{child.rw}</td>
       <td className="px-3 py-3">
-        <div className="flex justify-end gap-1">
+        {!readOnly && <div className="flex justify-end gap-1">
           <button
             aria-label={`Edit ${child.nama_anak}`}
             className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10"
@@ -64,7 +65,7 @@ export function ChildRow({ child, onDelete, onEdit, referenceDate }: ChildRowPro
           >
             <TrashIcon />
           </button>
-        </div>
+        </div>}
       </td>
     </tr>
   );

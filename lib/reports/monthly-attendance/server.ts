@@ -6,7 +6,7 @@ import type {
   MonthlyPosyanduInformation,
   SavedMonthlyAttendanceReport,
 } from "@/components/reports/monthly-attendance/types";
-import { getAuthenticatedPetugas } from "@/lib/user/server";
+import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/user/server";
 
 type AttendingChild = {
   id: string;
@@ -71,7 +71,7 @@ export async function listReportOfficers(): Promise<ReportOfficer[]> {
 }
 
 export async function createMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
 
@@ -105,7 +105,7 @@ export async function createMonthlyAttendanceReport(input: MonthlyAttendanceInpu
 }
 
 export async function saveMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
   await validateReportOfficers(supabase, posyanduId, uniqueOfficerIds);

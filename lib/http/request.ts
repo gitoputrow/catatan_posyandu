@@ -2,6 +2,10 @@ type ApiErrorResponse = {
   message?: string;
 };
 
+export function isConnectionError(error: unknown) {
+  return error instanceof TypeError;
+}
+
 export async function request<T>(
   url: string,
   options?: RequestInit,

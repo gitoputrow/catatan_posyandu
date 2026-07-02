@@ -4,9 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { useCurrentUser } from "@/components/user/user-provider";
 import { logout } from "@/lib/auth/api";
-import { User } from "../user/types";
-import { getUser } from "@/lib/user/api";
 
 type NavigationItem = {
   href: string;
@@ -17,7 +16,7 @@ type NavigationItem = {
 type NavigationGroup = {
   icon: ReactNode;
   label: string;
-  items: Array<{ href: string; label: string }>;
+  items: Array<{ href: string; label: string; writeOnly?: boolean }>;
 };
 
 const navigationItems: NavigationItem[] = [
@@ -34,7 +33,7 @@ const navigationGroups: NavigationGroup[] = [
     icon: <DocumentIcon />,
     items: [
       { href: "/reports/monthly-attendance", label: "Kehadiran Bulanan" },
-      { href: "/reports/monthly-attendance/create", label: "Tambah Laporan" },
+      { href: "/reports/monthly-attendance/create", label: "Tambah Laporan", writeOnly: true },
     ],
   },
   {
@@ -42,7 +41,7 @@ const navigationGroups: NavigationGroup[] = [
     icon: <ChildrenIcon />,
     items: [
       { href: "/children", label: "List Balita" },
-      { href: "/children/create", label: "Tambah Balita" },
+      { href: "/children/create", label: "Tambah Balita", writeOnly: true },
     ],
   },
   {
@@ -51,7 +50,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { href: "/growth-recording", label: "List Pertumbuhan" },
       { href: "/growth-recording/history", label: "Riwayat Pertumbuhan" },
-      { href: "/growth-recording/create", label: "Tambah Catatan" },
+      { href: "/growth-recording/create", label: "Tambah Catatan", writeOnly: true },
     ],
   },
 ];
@@ -59,24 +58,13 @@ const navigationGroups: NavigationGroup[] = [
 export function DashboardSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const { canManage, error, user } = useCurrentUser();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(
     () => new Set(navigationGroups.map((group) => group.label)),
   );
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchUser = async () => {
-    try {
-      const response = await getUser();
-      setUser(response);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      setError("Gagal memuat data petugas.");
-    }
-  };
 
   async function handleLogout() {
     setIsLoggingOut(true);
@@ -102,11 +90,6 @@ export function DashboardSidebar() {
       return next;
     });
   }
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => void fetchUser(), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
 
   useEffect(() => {
     if (!isSidebarOpen) return;
@@ -253,7 +236,7 @@ export function DashboardSidebar() {
                   <div
                     className={`mt-1 ml-5 space-y-1 border-l border-border pl-3 ${isCollapsed ? "lg:hidden" : ""}`}
                   >
-                    {group.items.map((item) => {
+                    {group.items.filter((item) => canManage || !item.writeOnly).map((item) => {
                       const isActive = pathname === item.href;
                       return (
                         <Link

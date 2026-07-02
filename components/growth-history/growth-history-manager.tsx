@@ -10,6 +10,7 @@ import type {
 import { GrowthHistoryCard } from "@/components/growth-history/growth-history-card";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
+import { MetricChange } from "@/components/ui/metric-change";
 import { getGrowthHistory } from "@/lib/growth-history/api";
 import {
   exportAllGrowthHistories,
@@ -114,10 +115,15 @@ export function GrowthHistoryManager() {
 
   return (
     <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
-      <header>
-        <p className="text-sm font-semibold text-primary">PEMANTAUAN BALITA</p>
-        <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">Riwayat Pertumbuhan</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Pantau perubahan berat dan tinggi badan balita dari bulan ke bulan.</p>
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-primary">PEMANTAUAN BALITA</p>
+          <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">Riwayat Pertumbuhan</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Pantau perubahan berat dan tinggi badan balita dari bulan ke bulan.</p>
+        </div>
+        <Button disabled={children.length === 0 || isExportingAll} onClick={() => void exportAll()} variant="outline">
+          {isExportingAll ? "Mengekspor..." : "Export Semua Historis"}
+        </Button>
       </header>
 
       <section className="mt-8 rounded-xl border border-border bg-surface p-4 shadow-sm sm:p-5">
@@ -138,9 +144,6 @@ export function GrowthHistoryManager() {
             <Button disabled={!selectedChild || isLoading || isExportingChild} onClick={exportSelected} variant="outline">
               {isExportingChild ? "Mengekspor..." : "Export Data Historis"}
             </Button>
-            <Button disabled={children.length === 0 || isExportingAll} onClick={() => void exportAll()} variant="outline">
-              {isExportingAll ? "Mengekspor..." : "Export Semua Historis"}
-            </Button>
           </div>
         </div>
 
@@ -150,9 +153,12 @@ export function GrowthHistoryManager() {
         {!isLoading && !error && selectedChild && (
           <>
             <div className="space-y-3 p-4 md:hidden">
-              {Array.from({ length: month }, (_, index) => (
-                <GrowthHistoryCard key={index} measurement={measurementByMonth.get(index + 1)} month={index + 1} />
-              ))}
+              {Array.from({ length: month }, (_, index) => {
+                const currentMonth = index + 1;
+                const measurement = measurementByMonth.get(currentMonth);
+                const previousMeasurement = measurementByMonth.get(currentMonth - 1);
+                return <GrowthHistoryCard armChange={calculateChange(measurement?.lingkar_lengan, previousMeasurement?.lingkar_lengan)} headChange={calculateChange(measurement?.lingkar_kepala, previousMeasurement?.lingkar_kepala)} heightChange={calculateChange(measurement?.tinggi_badan, previousMeasurement?.tinggi_badan)} key={index} measurement={measurement} month={currentMonth} weightChange={calculateChange(measurement?.berat_badan, previousMeasurement?.berat_badan)} />;
+              })}
             </div>
             <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-left text-sm">
@@ -163,13 +169,14 @@ export function GrowthHistoryManager() {
                   {Array.from({ length: month }, (_, index) => {
                     const currentMonth = index + 1;
                     const measurement = measurementByMonth.get(currentMonth);
+                    const previousMeasurement = measurementByMonth.get(currentMonth - 1);
                     return (
                       <tr key={currentMonth}>
                         <td className="px-5 py-4 font-bold text-text-primary">{historyMonthNames[index]}</td>
-                        <MetricCell unit="kg" value={measurement?.berat_badan} />
-                        <MetricCell unit="cm" value={measurement?.tinggi_badan} />
-                        <MetricCell unit="cm" value={measurement?.lingkar_lengan} />
-                        <MetricCell unit="cm" value={measurement?.lingkar_kepala} />
+                        <MetricCell change={calculateChange(measurement?.berat_badan, previousMeasurement?.berat_badan)} unit="kg" value={measurement?.berat_badan} />
+                        <MetricCell change={calculateChange(measurement?.tinggi_badan, previousMeasurement?.tinggi_badan)} unit="cm" value={measurement?.tinggi_badan} />
+                        <MetricCell change={calculateChange(measurement?.lingkar_lengan, previousMeasurement?.lingkar_lengan)} unit="cm" value={measurement?.lingkar_lengan} />
+                        <MetricCell change={calculateChange(measurement?.lingkar_kepala, previousMeasurement?.lingkar_kepala)} unit="cm" value={measurement?.lingkar_kepala} />
                       </tr>
                     );
                   })}
@@ -183,8 +190,13 @@ export function GrowthHistoryManager() {
   );
 }
 
-function MetricCell({ unit, value }: { unit: string; value?: number | null }) {
-  return <td className="px-5 py-4 font-medium text-text-primary">{value != null ? `${value} ${unit}` : "-"}</td>;
+function MetricCell({ change, unit, value }: { change?: number | null; unit: string; value?: number | null }) {
+  return <td className="px-5 py-4 font-medium text-text-primary">{value != null ? `${value} ${unit}` : "-"}<MetricChange change={change} unit={unit} /></td>;
+}
+
+function calculateChange(current?: number | null, previous?: number | null) {
+  if (current === null || current === undefined || previous === null || previous === undefined) return null;
+  return Math.round((Number(current) - Number(previous)) * 100) / 100;
 }
 
 function parseMonth(value: string | null, fallback: number) {

@@ -1,4 +1,5 @@
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import type { GrowthTrendData } from "@/components/dashboard/growth-trend-summary";
 import { request } from "@/lib/http/request";
 
 export type GrowthRecordInput = {
@@ -22,6 +23,7 @@ export type PaginatedGrowthRecords = {
   total: number;
   totalPages: number;
   recordedCount: number;
+  growthTrends: GrowthTrendData;
 };
 
 export function getGrowthRecords(page = 1, limit = 10, month?: number, year?: number, search?: string) {

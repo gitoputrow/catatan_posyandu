@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { CreateChildPage } from "@/components/children/create-child-page";
+import { WriteAccessGuard } from "@/components/auth/write-access-guard";
 import { PageLoading } from "@/components/ui/page-loading";
 
 export const metadata: Metadata = {
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function CreateChildRoute() {
-  return <Suspense fallback={<PageLoading />}><CreateChildPage /></Suspense>;
+  return <WriteAccessGuard><Suspense fallback={<PageLoading />}><CreateChildPage /></Suspense></WriteAccessGuard>;
 }

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100
       ? requestedYear
       : now.getFullYear();
-    const { data, error, count, recordedCount } = await listGrowthRecords(page, limit, month, year, search);
+    const { data, error, count, recordedCount, growthTrends } = await listGrowthRecords(page, limit, month, year, search);
     if (error) throw error;
 
     const total = count ?? 0;
@@ -36,6 +36,7 @@ export async function GET(request: Request) {
       limit,
       total,
       recordedCount,
+      growthTrends,
       totalPages: Math.max(1, Math.ceil(total / limit)),
       month,
       year,

@@ -9,6 +9,7 @@ import { ChildRow } from "@/components/children/child-row";
 import type { Child } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
+import { useCurrentUser } from "@/components/user/user-provider";
 import {
   getAllChildren,
   getChildren,
@@ -24,6 +25,7 @@ const monthNames = [
 ];
 
 export function ChildrenManager() {
+  const { canManage } = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [children, setChildren] = useState<Child[]>([]);
@@ -215,6 +217,7 @@ export function ChildrenManager() {
               onDelete={deleteChild}
               onEdit={openEditForm}
               onOpen={() => router.push(`/children/${child.id}`)}
+              readOnly={!canManage}
               referenceDate={referenceDate}
             />
           ))}
@@ -239,6 +242,7 @@ export function ChildrenManager() {
                   key={child.id}
                   onDelete={deleteChild}
                   onEdit={openEditForm}
+                  readOnly={!canManage}
                   referenceDate={referenceDate}
                 />
               ))}
@@ -282,7 +286,7 @@ export function ChildrenManager() {
           </div>
         )}
       </section>
-      {isFormOpen && (
+      {canManage && isFormOpen && (
         <ChildForm
           child={editingChild}
           onClose={() => setIsFormOpen(false)}

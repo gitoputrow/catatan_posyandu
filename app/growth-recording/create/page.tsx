@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { CreateGrowthRecordPage } from "@/components/growth-record/create-growth-record-page";
+import { WriteAccessGuard } from "@/components/auth/write-access-guard";
 import { PageLoading } from "@/components/ui/page-loading";
 
 export const metadata: Metadata = {
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function CreateGrowthRecordRoute() {
-  return <Suspense fallback={<PageLoading />}><CreateGrowthRecordPage /></Suspense>;
+  return <WriteAccessGuard><Suspense fallback={<PageLoading />}><CreateGrowthRecordPage /></Suspense></WriteAccessGuard>;
 }

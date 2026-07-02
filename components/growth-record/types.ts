@@ -42,8 +42,12 @@ export interface GrowthRecordViewModel {
 
   berat_badan: number | null;
   tinggi_badan: number | null;
+  perubahan_berat_badan: number | null;
+  perubahan_tinggi_badan: number | null;
   lingkar_kepala: number | null;
   lingkar_lengan: number | null;
+  perubahan_lingkar_kepala: number | null;
+  perubahan_lingkar_lengan: number | null;
 
   catatan: string | null;
 
