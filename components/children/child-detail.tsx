@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import { ChildForm } from "@/components/children/child-form";
 import type { Child } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/components/user/user-provider";
 import { removeChild, updateChild } from "@/lib/children/api";
+import { sensitiveValue } from "@/lib/privacy";
 
 export function ChildDetail({ initialChild }: { initialChild: Child }) {
   const router = useRouter();
+  const { canManage } = useCurrentUser();
   const [child, setChild] = useState(initialChild);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -43,19 +46,19 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
         <div>
           <p className="text-sm font-semibold text-primary">DETAIL BALITA</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">{child.nama_anak}</h1>
-          <p className="mt-2 text-sm text-text-secondary">NIK Anak: {child.nik_anak}</p>
+          <p className="mt-2 text-sm text-text-secondary">NIK Anak: {sensitiveValue(child.nik_anak, canManage)}</p>
         </div>
-        <div className="flex gap-3">
+        {canManage && <div className="flex gap-3">
           <Button onClick={() => setIsEditing(true)} variant="outline">Edit Data</Button>
           <Button onClick={deleteChild} variant="danger">Hapus</Button>
-        </div>
+        </div>}
       </header>
 
       <section className="mt-6 grid gap-6 xl:grid-cols-2">
         <DetailCard title="Informasi Anak">
           <DetailItem label="Nama anak" value={child.nama_anak} />
-          <DetailItem label="NIK anak" value={child.nik_anak} />
-          <DetailItem label="Nomor KK" value={child.nomor_kk} />
+          <DetailItem label="NIK anak" value={sensitiveValue(child.nik_anak, canManage)} />
+          <DetailItem label="Nomor KK" value={sensitiveValue(child.nomor_kk, canManage)} />
           <DetailItem label="Anak ke" value={String(child.no_urut_anak)} />
           {child.tanggal_lahir && <DetailItem label="Tanggal lahir" value={formatDate(child.tanggal_lahir)} />}
           <DetailItem label="Jenis kelamin" value={child.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"} />
@@ -64,10 +67,10 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
         <DetailCard title="Orang Tua / Wali">
           <DetailItem label="Nama ibu" value={child.nama_ibu} />
           <DetailItem label="Nama ayah" value={child.nama_ayah} />
-          <DetailItem label="NIK orang tua" value={child.nik_ortu} />
-          <DetailItem label="No. HP ibu" value={child.no_hp_ibu} />
-          <DetailItem label="No. HP ayah" value={child.no_hp_ayah} />
-          <DetailItem label="No. HP utama" value={child.hp_ortu} />
+          <DetailItem label="NIK orang tua" value={sensitiveValue(child.nik_ortu, canManage)} />
+          <DetailItem label="No. HP ibu" value={sensitiveValue(child.no_hp_ibu, canManage)} />
+          <DetailItem label="No. HP ayah" value={sensitiveValue(child.no_hp_ayah, canManage)} />
+          <DetailItem label="No. HP utama" value={sensitiveValue(child.hp_ortu, canManage)} />
         </DetailCard>
 
         <DetailCard title="Kewilayahan Anak">
@@ -79,7 +82,7 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
         </DetailCard>
       </section>
 
-      {isEditing && <ChildForm child={child} onClose={() => setIsEditing(false)} onSave={saveChild} />}
+      {canManage && isEditing && <ChildForm child={child} onClose={() => setIsEditing(false)} onSave={saveChild} />}
     </main>
   );
 }

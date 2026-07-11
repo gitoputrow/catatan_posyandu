@@ -5,10 +5,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import { useCurrentUser } from "@/components/user/user-provider";
 import { getGrowthRecordById } from "@/lib/growth-record/api";
+import { sensitiveValue } from "@/lib/privacy";
 
 export default function GrowthRecordDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { canManage } = useCurrentUser();
   const [record, setRecord] = useState<GrowthRecordViewModel | null | undefined>(undefined);
 
   useEffect(() => {
@@ -28,12 +31,12 @@ export default function GrowthRecordDetailPage() {
       <section className="mt-6 grid gap-6 xl:grid-cols-2">
         <DetailCard title="Data Balita">
           <DetailItem label="Nama" value={record.nama} />
-          <DetailItem label="NIK" value={record.nik_anak} />
+          <DetailItem label="NIK" value={sensitiveValue(record.nik_anak, canManage)} />
           <DetailItem label="Jenis kelamin" value={record.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"} />
           <DetailItem label="Tanggal lahir" value={formatDate(record.tanggal_lahir)} />
           <DetailItem label="Nama ayah" value={record.nama_ayah} />
           <DetailItem label="Nama ibu" value={record.nama_ibu} />
-          <DetailItem label="NIK orang tua" value={record.nik_ortu} />
+          <DetailItem label="NIK orang tua" value={sensitiveValue(record.nik_ortu, canManage)} />
           <DetailItem label="Alamat" value={record.alamat} />
         </DetailCard>
         <DetailCard title="Hasil Pengukuran">

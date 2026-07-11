@@ -193,6 +193,7 @@ export function GrowthRecordManager() {
       ]);
 
       exportGrowthRecordsToExcel({
+        includeSensitiveData: canManage,
         records: recordsToExport,
         month,
         year,

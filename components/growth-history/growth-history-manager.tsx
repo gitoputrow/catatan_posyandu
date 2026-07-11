@@ -11,6 +11,7 @@ import { GrowthHistoryCard } from "@/components/growth-history/growth-history-ca
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
 import { MetricChange } from "@/components/ui/metric-change";
+import { useCurrentUser } from "@/components/user/user-provider";
 import { getGrowthHistory } from "@/lib/growth-history/api";
 import {
   exportAllGrowthHistories,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/growth-history/export";
 
 export function GrowthHistoryManager() {
+  const { canManage } = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = new Date();
@@ -105,7 +107,9 @@ export function GrowthHistoryManager() {
     setError(null);
     try {
       const result = await getGrowthHistory(month, year, undefined, true);
-      exportAllGrowthHistories(result.children, result.measurements, month, year);
+      exportAllGrowthHistories(result.children, result.measurements, month, year, {
+        includeSensitiveData: canManage,
+      });
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "Semua riwayat pertumbuhan gagal diekspor.");
     } finally {

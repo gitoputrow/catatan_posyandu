@@ -1,6 +1,7 @@
 "use client";
 
 import type { Child } from "@/components/children/types";
+import { sensitiveValue } from "@/lib/privacy";
 
 type ChildCardProps = {
   child: Child;
@@ -9,9 +10,10 @@ type ChildCardProps = {
   onOpen: () => void;
   readOnly?: boolean;
   referenceDate: Date;
+  showSensitiveData?: boolean;
 };
 
-export function ChildCard({ child, onDelete, onEdit, onOpen, readOnly = false, referenceDate }: ChildCardProps) {
+export function ChildCard({ child, onDelete, onEdit, onOpen, readOnly = false, referenceDate, showSensitiveData = true }: ChildCardProps) {
   return (
     <article className="rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-primary/5" role="button" tabIndex={0} onClick={onOpen} onKeyDown={(event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -22,7 +24,7 @@ export function ChildCard({ child, onDelete, onEdit, onOpen, readOnly = false, r
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="break-words text-sm font-extrabold leading-snug text-text-primary">{child.nama_anak}</h3>
-          <p className="mt-1 break-all font-mono text-xs text-text-secondary">{child.nik_anak || "-"}</p>
+          <p className="mt-1 break-all font-mono text-xs text-text-secondary">{sensitiveValue(child.nik_anak, showSensitiveData)}</p>
         </div>
         {!readOnly && <div className="flex shrink-0 justify-end gap-1">
           <button aria-label={`Edit ${child.nama_anak}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={(event) => { event.stopPropagation(); onEdit(child); }} type="button"><EditIcon /></button>

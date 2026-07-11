@@ -7,6 +7,7 @@ import type { User } from "@/components/user/types";
 import { logout } from "@/lib/auth/api";
 import { isConnectionError } from "@/lib/http/request";
 import { getUser } from "@/lib/user/api";
+import { canWriteAsKader } from "@/lib/user/permissions";
 
 type UserContextValue = {
   canManage: boolean;
@@ -53,10 +54,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      canManage:
-        Boolean(user) &&
-        user?.role?.toLowerCase() !== "viewer" &&
-        user?.jenis_petugas?.toLowerCase() !== "viewer",
+      canManage: canWriteAsKader(user),
       error,
       isLoading,
       user,

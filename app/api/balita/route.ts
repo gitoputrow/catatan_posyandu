@@ -11,16 +11,8 @@ function isChildInput(value: unknown): value is ChildInput {
 
   const child = value as Partial<ChildInput>;
   return (
-    typeof child.nama_anak === "string" &&
-    child.nama_anak.trim().length > 0 &&
     typeof child.nik_anak === "string" &&
-    child.nik_anak.trim().length > 0 &&
-    typeof child.tanggal_lahir === "string" &&
-    typeof child.kelurahan_id === "string" &&
-    child.kelurahan_id.trim().length > 0 &&
-    typeof child.posyandu_id === "string" &&
-    child.posyandu_id.trim().length > 0 &&
-    (child.jenis_kelamin === "L" || child.jenis_kelamin === "P")
+    child.nik_anak.trim().length > 0
   );
 }
 
@@ -69,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     if (!isChildInput(payload)) {
-      return badRequest("Nama, NIK, tanggal lahir, kelurahan, Posyandu, dan jenis kelamin wajib diisi.");
+      return badRequest("NIK balita wajib diisi.");
     }
 
     const { data, error } = await createChild(payload);

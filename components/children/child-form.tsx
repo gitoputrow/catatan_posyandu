@@ -159,7 +159,6 @@ export function ChildForm({
             label="Nama anak"
             name="nama_anak"
             onValueChange={updateField}
-            required
             value={formData.nama_anak}
           />
           <FormField
@@ -173,7 +172,6 @@ export function ChildForm({
             label="Tanggal lahir"
             name="tanggal_lahir"
             onValueChange={updateField}
-            required
             type="date"
             value={formData.tanggal_lahir}
           />
@@ -185,7 +183,6 @@ export function ChildForm({
             label="Nama ibu"
             name="nama_ibu"
             onValueChange={updateField}
-            required
             value={formData.nama_ibu}
           />
           <FormField
@@ -201,13 +198,13 @@ export function ChildForm({
             type="tel"
             value={formData.hp_ortu}
           />
-          <FormSelect disabled={isReferenceLoading} label="Kelurahan" onChange={(event) => selectKelurahan(event.target.value)} required value={formData.kelurahan_id}>
+          <FormSelect disabled={isReferenceLoading} label="Kelurahan" onChange={(event) => selectKelurahan(event.target.value)} value={formData.kelurahan_id}>
             {
               isReferenceLoading && <option value="">Memuat kelurahan...</option>
             }
             {kelurahan.map((item) => <option key={item.id} value={item.id}>{item.nama_kelurahan}</option>)}
           </FormSelect>
-          <FormSelect disabled={isReferenceLoading || !formData.kelurahan_id} label="Posyandu" onChange={(event) => selectPosyandu(event.target.value)} required value={formData.posyandu_id}>
+          <FormSelect disabled={isReferenceLoading || !formData.kelurahan_id} label="Posyandu" onChange={(event) => selectPosyandu(event.target.value)} value={formData.posyandu_id}>
             {
               isReferenceLoading || formData.kelurahan_id === "" && <option value="">{formData.kelurahan_id === "" ? "Pilih kelurahan terlebih dahulu" : "Memuat posyandu..."}</option>
             }
@@ -217,7 +214,6 @@ export function ChildForm({
             label="Alamat"
             name="alamat"
             onValueChange={updateField}
-            required
             value={formData.alamat}
           />
           <FormField

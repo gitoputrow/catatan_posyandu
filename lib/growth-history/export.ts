@@ -4,6 +4,7 @@ import type {
   GrowthHistoryChild,
   GrowthHistoryMeasurement,
 } from "@/components/growth-history/types";
+import { exportSensitiveValue } from "@/lib/privacy";
 
 export const historyMonthNames = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -50,7 +51,9 @@ export function exportAllGrowthHistories(
   measurements: GrowthHistoryMeasurement[],
   month: number,
   year: number,
+  options: { includeSensitiveData?: boolean } = {},
 ) {
+  const includeSensitiveData = options.includeSensitiveData ?? true;
   const measurementByMonth = createMeasurementMap(measurements);
   const firstChild = children[0];
   const rows: (string | number)[][] = [
@@ -63,11 +66,11 @@ export function exportAllGrowthHistories(
       const row: (string | number)[] = [
         index + 1,
         child.nama,
-        child.nik_anak ?? "",
+        exportSensitiveValue(child.nik_anak, includeSensitiveData),
         formatDate(child.tanggal_lahir),
         child.jenis_kelamin,
         [child.nama_ayah, child.nama_ibu].filter(Boolean).join(" / "),
-        child.nik_ortu ?? "",
+        exportSensitiveValue(child.nik_ortu, includeSensitiveData),
         formatAddress(child),
         getAgeInMonths(child.tanggal_lahir, new Date(year, month, 0)) ?? "",
       ];

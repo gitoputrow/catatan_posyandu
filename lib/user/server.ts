@@ -1,4 +1,5 @@
 import { AuthenticationError, getAuthenticatedSupabaseServerClient } from "@/lib/supabase/server";
+import { canWriteAsKader } from "@/lib/user/permissions";
 
 const tableName = "petugas";
 
@@ -32,8 +33,8 @@ export async function getAuthenticatedPetugas() {
 
 export async function getAuthenticatedPetugasForWrite() {
   const petugas = await getAuthenticatedPetugas();
-  if (petugas.role.toLowerCase() === "viewer") {
-    throw new AuthorizationError("Akun viewer hanya dapat melihat dan mengekspor data.");
+  if (!canWriteAsKader(petugas)) {
+    throw new AuthorizationError("Hanya kader yang dapat menambah, mengubah, atau menghapus data.");
   }
   return petugas;
 }

@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx-js-style";
 
 import type { Child } from "@/components/children/types";
+import { exportSensitiveValue } from "@/lib/privacy";
 
 const headers = [
   "No",
@@ -21,7 +22,12 @@ const headers = [
   "Posyandu mana",
 ];
 
-export function exportChildrenToExcel(children: Child[]) {
+type ExportChildrenOptions = {
+  includeSensitiveData?: boolean;
+};
+
+export function exportChildrenToExcel(children: Child[], options: ExportChildrenOptions = {}) {
+  const includeSensitiveData = options.includeSensitiveData ?? true;
   const year = new Date().getFullYear();
   const rows = [
     [`PENDATAAN BALITA TAHUN ${year}`],
@@ -35,12 +41,12 @@ export function exportChildrenToExcel(children: Child[]) {
       formatDate(child.tanggal_lahir),
       getAgeInMonths(child.tanggal_lahir),
       child.jenis_kelamin ?? "",
-      child.nomor_kk ?? "",
-      child.nik_anak ?? "",
+      exportSensitiveValue(child.nomor_kk, includeSensitiveData),
+      exportSensitiveValue(child.nik_anak, includeSensitiveData),
       child.nama_anak ?? "",
       child.nama_ayah ?? "",
-      child.nik_ortu ?? "",
-      child.hp_ortu || child.no_hp_ibu || child.no_hp_ayah || "",
+      exportSensitiveValue(child.nik_ortu, includeSensitiveData),
+      exportSensitiveValue(child.hp_ortu || child.no_hp_ibu || child.no_hp_ayah, includeSensitiveData),
       child.alamat ?? "",
       child.rt ?? "",
       child.rw ?? "",

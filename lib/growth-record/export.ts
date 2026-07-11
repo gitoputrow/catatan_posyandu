@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx-js-style";
 
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import { exportSensitiveValue } from "@/lib/privacy";
 
 const monthNames = [
   "Januari",
@@ -22,9 +23,11 @@ type ExportGrowthRecordsOptions = {
   month: number;
   year: number;
   posyanduName?: string;
+  includeSensitiveData?: boolean;
 };
 
 export function exportGrowthRecordsToExcel({
+  includeSensitiveData = true,
   records,
   month,
   year,
@@ -57,12 +60,12 @@ export function exportGrowthRecordsToExcel({
       record.nama,
       record.jenis_kelamin,
       formatDate(record.tanggal_lahir),
-      record.nik_anak ?? "",
+      exportSensitiveValue(record.nik_anak, includeSensitiveData),
       record.nama_ayah ?? "",
       record.nama_ibu ?? "",
       record.alamat ?? "",
       getAgeInMonths(record.tanggal_lahir, referenceDate) ?? "",
-      record.nik_ortu ?? "",
+      exportSensitiveValue(record.nik_ortu, includeSensitiveData),
       record.berat_badan ?? "",
       record.lingkar_lengan ?? "",
       record.lingkar_kepala ?? "",

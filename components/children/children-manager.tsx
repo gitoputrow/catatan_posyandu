@@ -130,7 +130,9 @@ export function ChildrenManager() {
     setIsExporting(true);
     setError(null);
     try {
-      exportChildrenToExcel(await getAllChildren(month, year));
+      exportChildrenToExcel(await getAllChildren(month, year), {
+        includeSensitiveData: canManage,
+      });
     } catch (exportError) {
       setError(
         exportError instanceof Error
@@ -203,7 +205,7 @@ export function ChildrenManager() {
               <input
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Cari nama, NIK, atau Posyandu"
+                placeholder={canManage ? "Cari nama, NIK, atau Posyandu" : "Cari nama atau Posyandu"}
                 value={query}
               />
             </label>
@@ -219,6 +221,7 @@ export function ChildrenManager() {
               onOpen={() => router.push(`/children/${child.id}`)}
               readOnly={!canManage}
               referenceDate={referenceDate}
+              showSensitiveData={canManage}
             />
           ))}
         </div>
@@ -244,6 +247,7 @@ export function ChildrenManager() {
                   onEdit={openEditForm}
                   readOnly={!canManage}
                   referenceDate={referenceDate}
+                  showSensitiveData={canManage}
                 />
               ))}
             </tbody>

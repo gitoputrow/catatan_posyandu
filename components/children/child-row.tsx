@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import type { Child } from "@/components/children/types";
+import { sensitiveValue } from "@/lib/privacy";
 
 type ChildRowProps = {
   child: Child;
@@ -10,9 +11,10 @@ type ChildRowProps = {
   onEdit: (child: Child) => void;
   readOnly?: boolean;
   referenceDate: Date;
+  showSensitiveData?: boolean;
 };
 
-export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceDate }: ChildRowProps) {
+export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceDate, showSensitiveData = true }: ChildRowProps) {
   const router = useRouter();
 
   return (
@@ -31,7 +33,7 @@ export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceD
         {child.nama_anak}
       </td>
       <td className="px-3 py-3 font-mono text-xs text-text-secondary">
-        {child.nik_anak}
+        {sensitiveValue(child.nik_anak, showSensitiveData)}
       </td>
       <td className="px-3 py-3 text-xs text-text-primary">
         {child.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"}
