@@ -10,6 +10,7 @@ function isChildInput(value: unknown): value is ChildInput {
   if (!value || typeof value !== "object") return false;
 
   const child = value as Partial<ChildInput>;
+  if ("id" in child || "created_by" in child || "created_by_name" in child || "created_at" in child || "registered_at" in child || "updated_at" in child) return false;
   return (
     typeof child.nik_anak === "string" &&
     child.nik_anak.trim().length > 0

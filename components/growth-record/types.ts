@@ -14,6 +14,7 @@ export type GrowthRecordModel = {
 
   catatan: string | null;
 
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +52,8 @@ export interface GrowthRecordViewModel {
 
   catatan: string | null;
 
+  created_by: string | null;
+  created_by_name?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }

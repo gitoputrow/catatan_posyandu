@@ -73,13 +73,13 @@ export function MonthlyAttendanceManager() {
 
   return (
     <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-5">
         <div>
           <p className="text-sm font-semibold text-primary">LAPORAN POSYANDU</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">Kehadiran Bulanan</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Jumlah balita yang melakukan penimbangan, dikelompokkan berdasarkan status pendaftaran, usia, dan jenis kelamin.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">Rekap balita yang hadir penimbangan bulan ini.</p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-[10rem_8rem]"><SearchableSelect ariaLabel="Pilih bulan" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} /><SearchableSelect ariaLabel="Pilih tahun" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} /></div>
           <Button disabled={!report?.savedReport || isExporting} onClick={() => void exportReport()} variant="outline">{isExporting ? "Mengekspor..." : "Export"}</Button>
           {canManage && <Button disabled={isLoading} onClick={() => router.push(`/reports/monthly-attendance/create?period=${year}-${String(month).padStart(2, "0")}`)}>{report?.savedReport ? "Edit" : "Tambah"}</Button>}
@@ -93,6 +93,11 @@ export function MonthlyAttendanceManager() {
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Ringkasan Kegiatan</p>
           <h2 className="mt-1 text-xl font-extrabold text-text-primary">Informasi Posyandu</h2>
           <p className="mt-1 text-sm text-text-secondary">Data pendukung kegiatan pada {monthNames[month - 1]} {year}.</p>
+          {!isLoading && report?.savedReport && (
+            <p className="mt-2 text-xs font-semibold text-text-secondary">
+              Dibuat oleh: <span className="text-text-primary">{report.savedReport.created_by_name ?? report.savedReport.created_by ?? "-"}</span>
+            </p>
+          )}
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-12 lg:items-stretch">
           <InformationGroup

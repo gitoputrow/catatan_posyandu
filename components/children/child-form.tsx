@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Form, FormField, FormSelect } from "@/components/ui/form";
 import { getKelurahan, getPosyandu } from "@/lib/children/api";
 
-const emptyChild: Omit<Child, "id" | "created_at" | "registered_at" | "updated_at"> = {
+type ChildFormData = Omit<
+  Child,
+  "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
+>;
+
+const emptyChild: ChildFormData = {
   alamat: "",
   hp_ortu: "",
   jenis_kelamin: "L",
@@ -109,6 +114,8 @@ export function ChildForm({
       await onSave({
         ...formData,
         id: child?.id ?? crypto.randomUUID(),
+        created_by: child?.created_by ?? null,
+        created_by_name: child?.created_by_name ?? null,
         created_at: child?.created_at ?? now,
         registered_at: child?.registered_at ?? now,
         updated_at: now,
@@ -243,7 +250,7 @@ export function ChildForm({
 }
 
 
-function normalizeFormData(child: Child | null): Omit<Child, "id" | "created_at" | "registered_at" | "updated_at"> {
+function normalizeFormData(child: Child | null): ChildFormData {
   if (!child) return emptyChild;
 
   return {

@@ -28,8 +28,8 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
 
   async function saveChild(updatedChild: Child) {
     const payload = Object.fromEntries(
-      Object.entries(updatedChild).filter(([key]) => !["id", "created_at", "registered_at", "updated_at"].includes(key)),
-    ) as Omit<Child, "id" | "created_at" | "registered_at" | "updated_at">;
+      Object.entries(updatedChild).filter(([key]) => !["id", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key)),
+    ) as Omit<Child, "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
     const savedChild = await updateChild(updatedChild.id, payload);
     setChild(savedChild);
     setIsEditing(false);
@@ -57,6 +57,7 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
       <section className="mt-6 grid gap-6 xl:grid-cols-2">
         <DetailCard title="Informasi Anak">
           <DetailItem label="Nama anak" value={child.nama_anak} />
+          <DetailItem label="Dibuat oleh" value={child.created_by_name ?? child.created_by ?? "-"} />
           <DetailItem label="NIK anak" value={sensitiveValue(child.nik_anak, canManage)} />
           <DetailItem label="Nomor KK" value={sensitiveValue(child.nomor_kk, canManage)} />
           <DetailItem label="Anak ke" value={String(child.no_urut_anak)} />

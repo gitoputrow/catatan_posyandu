@@ -24,7 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
 function isGrowthRecordUpdateInput(value: unknown): value is GrowthRecordUpdateInput {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<GrowthRecordUpdateInput> & Record<string, unknown>;
-  const forbiddenFields = ["id", "balita_id", "posyandu_id", "periode_bulan", "created_at", "updated_at"];
+  const forbiddenFields = ["id", "balita_id", "posyandu_id", "periode_bulan", "created_by", "created_at", "updated_at"];
   const validMetric = (metric: unknown) => metric === undefined || metric === null || (typeof metric === "number" && Number.isFinite(metric));
 
   return (

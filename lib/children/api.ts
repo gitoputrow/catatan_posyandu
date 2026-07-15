@@ -9,7 +9,10 @@ export type PaginatedChildren = {
   totalPages: number;
 };
 
-type ChildInput = Omit<Child, "id" | "created_at" | "registered_at" | "updated_at">;
+type ChildInput = Omit<
+  Child,
+  "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
+>;
 
 export function getChildren(page = 1, limit = 10, search?: string, month?: number, year?: number) {
   const searchParams = new URLSearchParams({ page: String(page), limit: String(limit) });

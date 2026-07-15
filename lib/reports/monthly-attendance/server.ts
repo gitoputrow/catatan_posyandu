@@ -29,6 +29,7 @@ type AttendanceInformationRow = {
   total_balita_meninggal: number | null;
   total_balita_lahir: number | null;
   id_petugas: string[] | null;
+  created_by: string | null;
 };
 
 export type MonthlyAttendanceInput = {
@@ -71,9 +72,10 @@ export async function listReportOfficers(): Promise<ReportOfficer[]> {
 }
 
 export async function createMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
+  const reportPayload = toReportPayload(input);
 
   if (uniqueOfficerIds.length > 0) {
     const { data: officers, error: officerError } = await supabase
@@ -99,15 +101,16 @@ export async function createMonthlyAttendanceReport(input: MonthlyAttendanceInpu
 
   return supabase
     .from("laporan_kehadiran_posyandu")
-    .insert({ ...input, periode: period, id_petugas: uniqueOfficerIds, posyandu_id: posyanduId })
+    .insert({ ...reportPayload, periode: period, id_petugas: uniqueOfficerIds, posyandu_id: posyanduId, created_by: petugasId })
     .select("id, periode")
     .single();
 }
 
 export async function saveMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
+  const reportPayload = toReportPayload(input);
   await validateReportOfficers(supabase, posyanduId, uniqueOfficerIds);
 
   const { data: existing, error: existingError } = await supabase
@@ -119,7 +122,7 @@ export async function saveMonthlyAttendanceReport(input: MonthlyAttendanceInput)
     .maybeSingle();
   if (existingError) throw existingError;
 
-  const payload = { ...input, periode: period, id_petugas: uniqueOfficerIds };
+  const payload = { ...reportPayload, periode: period, id_petugas: uniqueOfficerIds };
   if (existing) {
     const result = await supabase
       .from("laporan_kehadiran_posyandu")
@@ -133,7 +136,7 @@ export async function saveMonthlyAttendanceReport(input: MonthlyAttendanceInput)
 
   const result = await supabase
     .from("laporan_kehadiran_posyandu")
-    .insert({ ...payload, posyandu_id: posyanduId })
+    .insert({ ...payload, posyandu_id: posyanduId, created_by: petugasId })
     .select("id, periode")
     .single();
   return { ...result, mode: "created" as const };
@@ -239,7 +242,7 @@ async function getMonthlyPosyanduInformation(
 ): Promise<{ information: MonthlyPosyanduInformation; savedReport: SavedMonthlyAttendanceReport | null }> {
   const { data, error } = await supabase
     .from("laporan_kehadiran_posyandu")
-    .select("id, periode, total_pus, total_wus, total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis, total_wanita_medis, total_balita_meninggal, total_balita_lahir, id_petugas")
+    .select("id, periode, total_pus, total_wus, total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis, total_wanita_medis, total_balita_meninggal, total_balita_lahir, id_petugas, created_by")
     .eq("posyandu_id", posyanduId)
     .gte("periode", formatDateOnly(monthStart))
     .lt("periode", formatDateOnly(monthEnd))
@@ -261,6 +264,17 @@ async function getMonthlyPosyanduInformation(
     if (officerError) throw officerError;
     selectedOfficers = officers ?? [];
   }
+  let creatorName: string | null = null;
+  if (report.created_by) {
+    const { data: creator, error: creatorError } = await supabase
+      .from("petugas")
+      .select("nama")
+      .eq("id", report.created_by)
+      .eq("posyandu_id", posyanduId)
+      .maybeSingle();
+    if (creatorError) throw creatorError;
+    creatorName = creator?.nama ?? null;
+  }
 
   const savedReport: SavedMonthlyAttendanceReport = {
     id: report.id,
@@ -276,6 +290,8 @@ async function getMonthlyPosyanduInformation(
     total_balita_meninggal: report.total_balita_meninggal ?? 0,
     total_balita_lahir: report.total_balita_lahir ?? 0,
     id_petugas: reportOfficerIds,
+    created_by: report.created_by,
+    created_by_name: creatorName,
   };
 
   return {
@@ -339,6 +355,21 @@ function normalizePeriod(value: string) {
   const match = value.match(/^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/);
   if (!match) throw new Error("Periode laporan tidak valid.");
   return `${match[1]}-${match[2]}-01`;
+}
+
+function toReportPayload(input: MonthlyAttendanceInput) {
+  return {
+    total_pus: input.total_pus,
+    total_wus: input.total_wus,
+    total_ibu_hamil: input.total_ibu_hamil,
+    total_ibu_menyusui: input.total_ibu_menyusui,
+    total_pria_plkb: input.total_pria_plkb,
+    total_wanita_plkb: input.total_wanita_plkb,
+    total_pria_medis: input.total_pria_medis,
+    total_wanita_medis: input.total_wanita_medis,
+    total_balita_meninggal: input.total_balita_meninggal,
+    total_balita_lahir: input.total_balita_lahir,
+  };
 }
 
 function isRegisteredInPeriod(value: string | null, start: Date, end: Date) {

@@ -19,6 +19,8 @@ export type Child = {
   rt: string;
   rw: string;
   tanggal_lahir: string;
+  created_by: string | null;
+  created_by_name?: string | null;
   created_at: string;
   registered_at: string | null;
   updated_at: string;

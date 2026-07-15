@@ -17,7 +17,7 @@ export async function getAuthenticatedPetugas() {
 
   const { data: petugas, error: petugasError } = await supabase
     .from(tableName)
-    .select("posyandu_id, jenis_petugas")
+    .select("id, posyandu_id, jenis_petugas")
     .eq("auth_user_id", authData.user.id)
     .single();
 
@@ -25,6 +25,7 @@ export async function getAuthenticatedPetugas() {
   if (!petugas?.posyandu_id) throw new AuthorizationError();
 
   return {
+    petugasId: petugas.id as string,
     supabase,
     posyanduId: petugas.posyandu_id as string,
     role: String(petugas.jenis_petugas ?? ""),

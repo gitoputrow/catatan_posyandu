@@ -162,9 +162,9 @@ export function ChildrenManager() {
   async function saveChild(child: Child) {
     const payload = Object.fromEntries(
       Object.entries(child).filter(
-        ([key]) => !["id", "created_at", "registered_at", "updated_at"].includes(key),
+        ([key]) => !["id", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key),
       ),
-    ) as Omit<Child, "id" | "created_at" | "registered_at" | "updated_at">;
+    ) as Omit<Child, "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
     await updateChild(child.id, payload);
     setIsFormOpen(false);
     setReloadKey((value) => value + 1);

@@ -33,7 +33,11 @@ const navigationGroups: NavigationGroup[] = [
     icon: <DocumentIcon />,
     items: [
       { href: "/reports/monthly-attendance", label: "Kehadiran Bulanan" },
-      { href: "/reports/monthly-attendance/create", label: "Tambah Laporan", writeOnly: true },
+      { href: "/reports/monthly-attendance/create", label: "Tambah Laporan Kehadiran", writeOnly: true },
+      { href: "/reports/monthly-activity", label: "Kegiatan Bulanan" },
+      { href: "/reports/monthly-activity/create", label: "Tambah Laporan Kegiatan", writeOnly: true },
+      { href: "/reports/gebyar", label: "Gebyar Bulanan" },
+      { href: "/reports/gebyar/create", label: "Tambah Laporan Gebyar", writeOnly: true },
     ],
   },
   {

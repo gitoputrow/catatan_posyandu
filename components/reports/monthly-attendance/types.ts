@@ -34,6 +34,8 @@ export type SavedMonthlyAttendanceReport = {
   total_balita_meninggal: number;
   total_balita_lahir: number;
   id_petugas: string[];
+  created_by: string | null;
+  created_by_name?: string | null;
 };
 
 export type MonthlyPosyanduInformation = {

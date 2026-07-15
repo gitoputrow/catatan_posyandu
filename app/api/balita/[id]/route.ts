@@ -31,7 +31,7 @@ export async function PATCH(request: Request, context: RouteContext) {
       return badRequest("Payload balita tidak valid.");
     }
 
-    if (!payload || typeof payload !== "object" || "id" in payload || "created_at" in payload || "registered_at" in payload || "updated_at" in payload) {
+    if (!payload || typeof payload !== "object" || "id" in payload || "created_by" in payload || "created_by_name" in payload || "created_at" in payload || "registered_at" in payload || "updated_at" in payload) {
       return badRequest("Payload balita tidak valid.");
     }
 

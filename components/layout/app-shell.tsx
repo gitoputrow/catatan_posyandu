@@ -11,7 +11,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isPublicPage = pathname === "/" || pathname.startsWith("/login");
   const isChildDetailPage = /^\/children\/[^/]+$/.test(pathname) && pathname !== "/children/create";
 
-  if (isPublicPage || isChildDetailPage) return <>{children}</>;
+  if (isPublicPage) return <>{children}</>;
+
+  if (isChildDetailPage) {
+    return <UserProvider>{children}</UserProvider>;
+  }
 
   return (
     <UserProvider>

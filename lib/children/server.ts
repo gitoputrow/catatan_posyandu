@@ -6,7 +6,10 @@ import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/
 const tableName = "balita";
 export const maxDisplayedAgeInMonths = 60;
 
-export type ChildInput = Omit<Child, "id" | "created_at" | "registered_at" | "updated_at">;
+export type ChildInput = Omit<
+  Child,
+  "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
+>;
 
 export async function listChildren(
   page: number,
@@ -43,22 +46,40 @@ export async function listChildren(
 }
 
 export async function createChild(child: ChildInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   return supabase
     .from(tableName)
-    .insert({ ...child, posyandu_id: posyanduId, registered_at: new Date().toISOString() })
+    .insert({ ...child, posyandu_id: posyanduId, created_by: petugasId, registered_at: new Date().toISOString() })
     .select()
     .single();
 }
 
 export async function findChildById(id: string) {
   const { supabase, posyanduId } = await getAuthenticatedPetugas();
-  return supabase.from(tableName).select("*").eq("id", id).eq("posyandu_id", posyanduId).single();
+  const result = await supabase.from(tableName).select("*").eq("id", id).eq("posyandu_id", posyanduId).single();
+  if (result.error || !result.data?.created_by) return result;
+
+  const { data: creator } = await supabase
+    .from("petugas")
+    .select("nama")
+    .eq("id", result.data.created_by)
+    .eq("posyandu_id", posyanduId)
+    .maybeSingle();
+
+  return {
+    ...result,
+    data: {
+      ...result.data,
+      created_by_name: creator?.nama ?? null,
+    },
+  };
 }
 
 export async function updateChildById(id: string, child: Partial<ChildInput>) {
   const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
-  const childData = { ...child };
+  const childData = { ...child } as Partial<Child> & Record<string, unknown>;
+  delete childData.created_by;
+  delete childData.created_by_name;
   delete childData.posyandu_id;
   return supabase
     .from(tableName)

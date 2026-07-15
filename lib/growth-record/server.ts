@@ -12,7 +12,7 @@ const tableName = "tumbuh_kembang_balita";
 
 export type GrowthRecordInput = Omit<
   GrowthRecordModel,
-  "id" | "posyandu_id" | "created_at" | "updated_at"
+  "id" | "posyandu_id" | "created_by" | "created_at" | "updated_at"
 >;
 export type GrowthRecordUpdateInput = Partial<
   Omit<GrowthRecordInput, "balita_id" | "periode_bulan">
@@ -55,6 +55,7 @@ const recordSelect = `
   lingkar_kepala,
   lingkar_lengan,
   catatan,
+  created_by,
   created_at,
   updated_at,
   balita:balita_id!inner(
@@ -80,6 +81,7 @@ const measurementSelect = `
   lingkar_kepala,
   lingkar_lengan,
   catatan,
+  created_by,
   created_at,
   updated_at
 `;
@@ -272,7 +274,7 @@ export async function findGrowthRecordById(id: string) {
 }
 
 export async function createGrowthRecord(record: GrowthRecordInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const { data: child, error: childError } = await supabase
     .from("balita")
     .select("id")
@@ -285,7 +287,7 @@ export async function createGrowthRecord(record: GrowthRecordInput) {
 
   return supabase
     .from(tableName)
-    .insert({ ...record, posyandu_id: posyanduId })
+    .insert({ ...record, posyandu_id: posyanduId, created_by: petugasId })
     .select(measurementSelect)
     .single();
 }
@@ -341,6 +343,7 @@ function toListViewModel(
     perubahan_lingkar_kepala: calculateMetricChange(measurement?.lingkar_kepala, previousMetrics?.head),
     perubahan_lingkar_lengan: calculateMetricChange(measurement?.lingkar_lengan, previousMetrics?.arm),
     catatan: measurement?.catatan ?? null,
+    created_by: measurement?.created_by ?? null,
     created_at: measurement?.created_at ?? null,
     updated_at: measurement?.updated_at ?? null,
   };
@@ -370,6 +373,7 @@ function toViewModel(record: GrowthRecordRow): GrowthRecordViewModel {
     perubahan_lingkar_kepala: null,
     perubahan_lingkar_lengan: null,
     catatan: record.catatan,
+    created_by: record.created_by,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };

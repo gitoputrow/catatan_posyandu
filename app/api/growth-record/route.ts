@@ -47,6 +47,7 @@ export async function GET(request: Request) {
 function isGrowthRecordInput(value: unknown): value is GrowthRecordInput {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<GrowthRecordInput>;
+  if ("id" in record || "created_by" in record || "created_at" in record || "updated_at" in record) return false;
   const validMetric = (metric: unknown) => metric === null || (typeof metric === "number" && Number.isFinite(metric));
 
   return (
