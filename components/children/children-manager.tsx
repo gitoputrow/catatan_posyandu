@@ -64,7 +64,7 @@ export function ChildrenManager() {
   const sortOptions = [
     { label: "Nama", value: "name" },
     { label: "Umur", value: "age" },
-    { label: "Terbaru Ditambahkan", value: "newest" },
+    { label: "Terbaru", value: "newest" },
   ];
 
   useEffect(() => {
@@ -206,18 +206,18 @@ export function ChildrenManager() {
       </header>
 
       <section className="mt-8 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-        <div className="flex flex-col gap-5 border-b border-border px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+        <div className="flex flex-col gap-5 border-b border-border px-4 py-4 sm:px-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="shrink-0">
             <h2 className="font-bold text-text-primary">Daftar Balita</h2>
             <p className="mt-1 text-sm text-text-secondary">
               {total} balita terdaftar
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-[9rem_7rem_12rem_18rem]">
+          <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-auto xl:grid-cols-[7.5rem_6.5rem_8.5rem_minmax(14rem,18rem)]">
             <SearchableSelect ariaLabel="Pilih bulan" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
             <SearchableSelect ariaLabel="Pilih tahun" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
             <SearchableSelect ariaLabel="Urutkan balita" className="w-full" onValueChange={changeSort} options={sortOptions} value={sort} />
-            <label className="relative block sm:col-span-2 lg:col-span-1">
+            <label className="relative block sm:col-span-2 xl:col-span-1">
               <span className="sr-only">Cari data balita</span>
               <input
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10"
