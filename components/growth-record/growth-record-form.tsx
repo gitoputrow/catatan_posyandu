@@ -4,17 +4,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { Child } from "@/components/children/types";
+import type { GrowthRecordViewModel } from "@/components/growth-record/types";
 import { Button } from "@/components/ui/button";
 import { Form, FormField, FormSelect, FormTextarea, SearchableSelect } from "@/components/ui/form";
 import { getAllChildren } from "@/lib/children/api";
-import { createGrowthRecord } from "@/lib/growth-record/api";
+import { createGrowthRecord, getAllGrowthRecords, updateGrowthRecord } from "@/lib/growth-record/api";
 
 const monthNames = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ];
 
-export function GrowthRecordForm() {
+export function GrowthRecordForm({ onModeChange }: { onModeChange?: (isUpdateMode: boolean) => void }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = new Date();
@@ -31,6 +32,8 @@ export function GrowthRecordForm() {
       : today.getFullYear(),
   );
   const [children, setChildren] = useState<Child[]>([]);
+  const [existingRecords, setExistingRecords] = useState<GrowthRecordViewModel[]>([]);
+  const [existingRecordId, setExistingRecordId] = useState<string | null>(null);
   const [isLoadingChildren, setIsLoadingChildren] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +51,12 @@ export function GrowthRecordForm() {
     let isMounted = true;
     const timeoutId = window.setTimeout(() => {
       setIsLoadingChildren(true);
-      void getAllChildren(month, year)
-        .then((data) => {
-          if (isMounted) setChildren(data);
+      void Promise.all([getAllChildren(month, year), getAllGrowthRecords(month, year)])
+        .then(([childrenData, recordsData]) => {
+          if (isMounted) {
+            setChildren(childrenData);
+            setExistingRecords(recordsData);
+          }
         })
         .catch((loadError) => {
           if (isMounted) setError(loadError instanceof Error ? loadError.message : "Data balita gagal dimuat.");
@@ -70,6 +76,44 @@ export function GrowthRecordForm() {
     setForm((current) => ({ ...current, [name]: value }));
   }
 
+  function selectChild(childId: string) {
+    const existing = existingRecords.find((record) => record.balita_id === childId && record.id);
+    const isUpdateMode = Boolean(existing?.id);
+    setExistingRecordId(existing?.id ?? null);
+    onModeChange?.(isUpdateMode);
+    setForm({
+      balita_id: childId,
+      tanggal_pengukuran: existing?.tanggal_pengukuran
+        ? toDateInputValue(existing.tanggal_pengukuran)
+        : formatInputDate(new Date()),
+      berat_badan: valueToInput(existing?.berat_badan),
+      tinggi_badan: valueToInput(existing?.tinggi_badan),
+      lingkar_kepala: valueToInput(existing?.lingkar_kepala),
+      lingkar_lengan: valueToInput(existing?.lingkar_lengan),
+      catatan: existing?.catatan ?? "",
+    });
+  }
+
+  function changePeriod(nextMonth: number, nextYear: number) {
+    setMonth(nextMonth);
+    setYear(nextYear);
+    setIsLoadingChildren(true);
+    setChildren([]);
+    setExistingRecords([]);
+    setExistingRecordId(null);
+    onModeChange?.(false);
+    setForm((current) => ({
+      ...current,
+      balita_id: "",
+      tanggal_pengukuran: formatInputDate(new Date()),
+      berat_badan: "",
+      tinggi_badan: "",
+      lingkar_kepala: "",
+      lingkar_lengan: "",
+      catatan: "",
+    }));
+  }
+
   function goToCreateChild() {
     const redirect = `/growth-recording/create?month=${month}&year=${year}`;
     router.push(`/children/create?redirect=${encodeURIComponent(redirect)}`);
@@ -80,16 +124,23 @@ export function GrowthRecordForm() {
     setIsSaving(true);
     setError(null);
     try {
-      await createGrowthRecord({
-        balita_id: form.balita_id,
-        periode_bulan: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+      const values = {
         tanggal_pengukuran: form.tanggal_pengukuran || null,
         berat_badan: toNumberOrNull(form.berat_badan),
         tinggi_badan: toNumberOrNull(form.tinggi_badan),
         lingkar_kepala: toNumberOrNull(form.lingkar_kepala),
         lingkar_lengan: toNumberOrNull(form.lingkar_lengan),
         catatan: form.catatan.trim() || null,
-      });
+      };
+      if (existingRecordId) {
+        await updateGrowthRecord(existingRecordId, values);
+      } else {
+        await createGrowthRecord({
+          ...values,
+          balita_id: form.balita_id,
+          periode_bulan: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+        });
+      }
       router.push(`/growth-recording?month=${month}&year=${year}`);
       router.refresh();
     } catch (saveError) {
@@ -102,10 +153,10 @@ export function GrowthRecordForm() {
   return (
     <Form onSubmit={handleSubmit}>
       <div className="grid gap-5 p-6 sm:grid-cols-2">
-        <FormSelect label="Bulan" onChange={(event) => setMonth(Number(event.target.value))} value={month}>
+        <FormSelect label="Bulan" onChange={(event) => changePeriod(Number(event.target.value), year)} value={month}>
           {monthNames.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}
         </FormSelect>
-        <FormSelect label="Tahun" onChange={(event) => setYear(Number(event.target.value))} value={year}>
+        <FormSelect label="Tahun" onChange={(event) => changePeriod(month, Number(event.target.value))} value={year}>
           {Array.from({ length: 6 }, (_, index) => today.getFullYear() - index).map((option) => <option key={option} value={option}>{option}</option>)}
         </FormSelect>
         <div className="sm:col-span-2">
@@ -116,7 +167,7 @@ export function GrowthRecordForm() {
               className="mt-2"
               disabled={isLoadingChildren}
               name="balita_id"
-              onValueChange={(value) => updateField("balita_id", value)}
+              onValueChange={selectChild}
               options={children.map((child) => ({
                 label: `${child.nama_anak}${child.nik_anak ? ` - ${child.nik_anak}` : ""}`,
                 value: child.id,
@@ -137,7 +188,7 @@ export function GrowthRecordForm() {
       {error && <p className="px-6 pb-4 text-sm font-medium text-error">{error}</p>}
       <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
         <Button onClick={() => router.push("/growth-recording")} type="button" variant="outline">Batal</Button>
-        <Button isLoading={isSaving} type="submit">Simpan Catatan</Button>
+        <Button isLoading={isSaving} type="submit">{existingRecordId ? "Update Catatan" : "Simpan Catatan"}</Button>
       </div>
     </Form>
   );
@@ -152,4 +203,13 @@ function toNumberOrNull(value: string) {
 function formatInputDate(date: Date) {
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function toDateInputValue(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : formatInputDate(date);
+}
+
+function valueToInput(value: number | null | undefined) {
+  return value === null || value === undefined ? "" : String(value);
 }

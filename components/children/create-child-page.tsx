@@ -24,7 +24,7 @@ export function CreateChildPage() {
     router.refresh();
   }
 
-  return <ChildForm child={null} onClose={() => router.push(fallbackPath)} onSave={saveChild} presentation="page" />;
+  return <ChildForm backHref={fallbackPath} child={null} onClose={() => router.push(fallbackPath)} onSave={saveChild} presentation="page" />;
 }
 
 function getSafeRedirectPath(value: string | null) {

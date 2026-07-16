@@ -125,7 +125,7 @@ export function SearchableSelect({
         }}
         type="button"
       >
-        <span className={selectedOption ? "truncate" : "truncate text-text-disabled"}>
+        <span className={selectedOption ? "truncate text-sm sm:text-base" : "truncate text-text-disabled"}>
           {selectedOption?.label || placeholder}
         </span>
         <svg aria-hidden="true" className={`size-4 shrink-0 text-text-secondary transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>

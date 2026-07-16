@@ -1,8 +1,9 @@
 type DashboardStatCardProps = {
   color: string;
-  detail: string;
+  detail?: string;
   featured?: boolean;
   generatedAt?: string;
+  showGeneratedAt?: boolean;
   isLoading: boolean;
   label: string;
   value: number;
@@ -21,6 +22,7 @@ export function DashboardStatCard({
   generatedAt,
   isLoading,
   label,
+  showGeneratedAt = true,
   value,
 }: DashboardStatCardProps) {
   return (
@@ -32,21 +34,21 @@ export function DashboardStatCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-text-primary">{label}</p>
-          <p className="mt-1 text-xs font-medium text-text-secondary">{detail}</p>
+          {detail && <p className="mt-1 text-xs font-medium text-text-secondary">{detail}</p>}
         </div>
 
-        {featured ? (
+        {featured && showGeneratedAt ? (
           <div className="text-right">
             <p className="text-xs font-bold uppercase tracking-wide text-primary">Data terbaru</p>
             <p className="mt-1 text-xs font-medium text-text-secondary">
               {isLoading || !generatedAt ? "Memuat..." : formatDateTime(generatedAt)}
             </p>
           </div>
-        ) : (
+        ) : !featured ? (
           <div className={`grid size-10 shrink-0 place-items-center rounded-xl ${color}`}>
             <ChildIcon />
           </div>
-        )}
+        ) : null}
       </div>
 
       <p className="mt-5 text-3xl font-extrabold tracking-tight text-text-primary">

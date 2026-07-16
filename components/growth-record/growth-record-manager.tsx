@@ -218,7 +218,15 @@ export function GrowthRecordManager() {
             Catat dan pantau hasil pengukuran pertumbuhan balita setiap bulan.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {canManage && (
+            <Button
+              className="w-full whitespace-nowrap sm:w-auto"
+              onClick={() => router.push(`/growth-recording/create?month=${month}&year=${year}`)}
+            >
+              Tambah Catatan
+            </Button>
+          )}
           <Button className="w-full sm:w-auto" disabled={isExporting} onClick={() => void exportGrowthRecords()} size="md" variant="outline">
             {isExporting ? "Mengekspor..." : "Export Laporan"}
           </Button>
@@ -247,11 +255,11 @@ export function GrowthRecordManager() {
               {recordedCount} balita melakukan pencatatan
             </p>
           </div>
-          <div className="w-full lg:w-72">
+          <div className="w-full lg:w-auto">
             <label className="relative block">
               <span className="sr-only">Cari data pertumbuhan</span>
               <input
-                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10"
+                className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10 sm:w-72"
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Cari nama balita"
                 value={query}

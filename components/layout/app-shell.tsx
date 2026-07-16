@@ -9,9 +9,16 @@ import { UserProvider } from "@/components/user/user-provider";
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isPublicPage = pathname === "/" || pathname.startsWith("/login");
-  const isChildDetailPage = /^\/children\/[^/]+$/.test(pathname) && pathname !== "/children/create";
+  const isChildDetailPage = /^\/children\/[^/]+$/.test(pathname) &&
+    pathname !== "/children/create" &&
+    pathname !== "/children/activity-summary";
+  const isCreatePage = pathname.endsWith("/create");
 
   if (isPublicPage) return <>{children}</>;
+
+  if (isCreatePage) {
+    return <UserProvider>{children}</UserProvider>;
+  }
 
   if (isChildDetailPage) {
     return <UserProvider>{children}</UserProvider>;

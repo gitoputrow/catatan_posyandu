@@ -22,7 +22,7 @@ type NavigationGroup = {
 const navigationItems: NavigationItem[] = [
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Ringkasan",
     icon: <GridIcon />,
   },
 ];
@@ -33,19 +33,16 @@ const navigationGroups: NavigationGroup[] = [
     icon: <DocumentIcon />,
     items: [
       { href: "/reports/monthly-attendance", label: "Kehadiran Bulanan" },
-      { href: "/reports/monthly-attendance/create", label: "Tambah Laporan Kehadiran", writeOnly: true },
       { href: "/reports/monthly-activity", label: "Kegiatan Bulanan" },
-      { href: "/reports/monthly-activity/create", label: "Tambah Laporan Kegiatan", writeOnly: true },
       { href: "/reports/gebyar", label: "Gebyar Bulanan" },
-      { href: "/reports/gebyar/create", label: "Tambah Laporan Gebyar", writeOnly: true },
     ],
   },
   {
     label: "Data Balita",
     icon: <ChildrenIcon />,
     items: [
+      { href: "/children/activity-summary", label: "Aktivitas Balita" },
       { href: "/children", label: "List Balita" },
-      { href: "/children/create", label: "Tambah Balita", writeOnly: true },
     ],
   },
   {
@@ -54,7 +51,6 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { href: "/growth-recording", label: "List Pertumbuhan" },
       { href: "/growth-recording/history", label: "Riwayat Pertumbuhan" },
-      { href: "/growth-recording/create", label: "Tambah Catatan", writeOnly: true },
     ],
   },
 ];

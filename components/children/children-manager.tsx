@@ -62,9 +62,9 @@ export function ChildrenManager() {
     return { label: String(option), value: String(option) };
   });
   const sortOptions = [
-    { label: "Nama", value: "name" },
+    { label: "Nama Anak", value: "name" },
     { label: "Umur", value: "age" },
-    { label: "Terbaru", value: "newest" },
+    { label: "Tanggal Terdaftar", value: "newest" },
   ];
 
   useEffect(() => {
@@ -202,27 +202,39 @@ export function ChildrenManager() {
           <Button disabled={isExporting} onClick={() => void exportChildren()} size="md" variant="outline">
             {isExporting ? "Mengekspor..." : "Export Laporan"}
           </Button>
+          {canManage && (
+            <Button onClick={() => router.push("/children/create")} size="md">
+              Tambah Balita
+            </Button>
+          )}
         </div>
       </header>
 
       <section className="mt-8 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
-        <div className="flex flex-col gap-5 border-b border-border px-4 py-4 sm:px-5 xl:flex-row xl:items-center xl:justify-between">
-          <div className="shrink-0">
-            <h2 className="font-bold text-text-primary">Daftar Balita</h2>
-            <p className="mt-1 text-sm text-text-secondary">
-              {total} balita terdaftar
-            </p>
+        <div className="border-b border-border">
+          <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="shrink-0">
+              <h2 className="font-bold text-text-primary">Daftar Balita</h2>
+              <p className="mt-1 text-sm text-text-secondary">
+                {total} balita terdaftar
+              </p>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-[8rem_7rem]">
+              <SearchableSelect ariaLabel="Pilih bulan periode data" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
+              <SearchableSelect ariaLabel="Pilih tahun periode data" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
+            </div>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-2 xl:w-auto xl:grid-cols-[7.5rem_6.5rem_8.5rem_minmax(14rem,18rem)]">
-            <SearchableSelect ariaLabel="Pilih bulan" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
-            <SearchableSelect ariaLabel="Pilih tahun" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
-            <SearchableSelect ariaLabel="Urutkan balita" className="w-full" onValueChange={changeSort} options={sortOptions} value={sort} />
-            <label className="relative block sm:col-span-2 xl:col-span-1">
-              <span className="sr-only">Cari data balita</span>
+          <div className="grid gap-3 border-t border-border bg-background/40 px-4 py-4 sm:px-5 md:grid-cols-[minmax(12rem,1fr)_minmax(24rem,2fr)] md:items-end">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-text-secondary">Urutkan berdasarkan</span>
+              <SearchableSelect ariaLabel="Urutkan balita berdasarkan" className="w-full" onValueChange={changeSort} options={sortOptions} value={sort} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-bold text-text-secondary">Cari nama anak</span>
               <input
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10"
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={canManage ? "Cari nama, NIK, atau Posyandu" : "Cari nama atau Posyandu"}
+                placeholder="Ketik nama anak"
                 value={query}
               />
             </label>

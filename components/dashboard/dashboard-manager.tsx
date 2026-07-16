@@ -24,7 +24,7 @@ export function DashboardManager() {
     let active = true;
     void getDashboardData(year)
       .then((result) => { if (active) setData(result); })
-      .catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Dashboard gagal dimuat."); })
+      .catch((loadError) => { if (active) setError(loadError instanceof Error ? loadError.message : "Ringkasan aktivitas gagal dimuat."); })
       .finally(() => { if (active) setIsLoading(false); });
     return () => { active = false; };
   }, [year]);

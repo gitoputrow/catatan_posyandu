@@ -9,6 +9,10 @@ type MonthlyWeighingChartProps = {
   onYearChange: (value: string) => void;
   year: number;
   yearOptions: Array<{ label: string; value: string }>;
+  showYearFilter?: boolean;
+  title?: string;
+  description?: string | null;
+  chartAriaLabel?: string;
 };
 
 export function MonthlyWeighingChart({
@@ -17,30 +21,34 @@ export function MonthlyWeighingChart({
   onYearChange,
   year,
   yearOptions,
+  showYearFilter = true,
+  title = "Jumlah Penimbangan per Bulan",
+  description = "Jumlah balita unik yang melakukan pencatatan setiap bulan.",
+  chartAriaLabel = "Grafik garis jumlah penimbangan bulanan",
 }: MonthlyWeighingChartProps) {
   return (
     <section className="mt-6 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <div className="flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-bold text-text-primary">Jumlah Penimbangan per Bulan</h2>
-          <p className="mt-1 text-sm text-text-secondary">
-            Jumlah balita unik yang melakukan pencatatan setiap bulan.
-          </p>
+          <h2 className="font-bold text-text-primary">{title}</h2>
+          {description && <p className="mt-1 text-sm text-text-secondary">{description}</p>}
         </div>
-        <SearchableSelect
-          ariaLabel="Pilih tahun grafik"
-          className="w-full sm:w-28"
-          onValueChange={onYearChange}
-          options={yearOptions}
-          value={year}
-        />
+        {showYearFilter && (
+          <SearchableSelect
+            ariaLabel="Pilih tahun grafik"
+            className="w-full sm:w-28"
+            onValueChange={onYearChange}
+            options={yearOptions}
+            value={year}
+          />
+        )}
       </div>
-      <LineChart data={data} isLoading={isLoading} />
+      <LineChart ariaLabel={chartAriaLabel} data={data} isLoading={isLoading} />
     </section>
   );
 }
 
-function LineChart({ data, isLoading }: Pick<MonthlyWeighingChartProps, "data" | "isLoading">) {
+function LineChart({ ariaLabel, data, isLoading }: Pick<MonthlyWeighingChartProps, "data" | "isLoading"> & { ariaLabel: string }) {
   const values = Array.from(
     { length: 12 },
     (_, index) => data.find((item) => item.month === index + 1)?.count ?? 0,
@@ -58,7 +66,7 @@ function LineChart({ data, isLoading }: Pick<MonthlyWeighingChartProps, "data" |
     <div className="overflow-x-auto px-5 py-6 sm:px-6">
       <div className="min-w-[740px]">
         <svg
-          aria-label="Grafik garis jumlah penimbangan bulanan"
+          aria-label={ariaLabel}
           className="h-72 w-full"
           role="img"
           viewBox="0 0 730 270"

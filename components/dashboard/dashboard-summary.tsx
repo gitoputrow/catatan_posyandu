@@ -2,15 +2,18 @@ import { DashboardStatCard } from "@/components/dashboard/dashboard-stat-card";
 import type { DashboardData } from "@/components/dashboard/types";
 
 type DashboardSummaryProps = {
-  data: DashboardData | null;
+  data: Pick<DashboardData, "ageGroups" | "generatedAt"> | null;
   isLoading: boolean;
+  showFeaturedMeta?: boolean;
+  total?: number;
 };
 
-export function DashboardSummary({ data, isLoading }: DashboardSummaryProps) {
+export function DashboardSummary({ data, isLoading, showFeaturedMeta = true, total: totalOverride }: DashboardSummaryProps) {
   const ageGroups = data?.ageGroups;
-  const total = ageGroups
+  const ageGroupTotal = ageGroups
     ? ageGroups.infantMale + ageGroups.infantFemale + ageGroups.childMale + ageGroups.childFemale
     : 0;
+  const total = totalOverride ?? ageGroupTotal;
   const cards = [
     {
       label: "Total Balita",
@@ -53,9 +56,10 @@ export function DashboardSummary({ data, isLoading }: DashboardSummaryProps) {
       {cards.map((card) => (
         <DashboardStatCard
           {...card}
-          generatedAt={card.featured ? data?.generatedAt : undefined}
+          generatedAt={card.featured && showFeaturedMeta ? data?.generatedAt : undefined}
           isLoading={isLoading}
           key={`${card.label}-${card.detail}`}
+          showGeneratedAt={showFeaturedMeta}
         />
       ))}
     </section>

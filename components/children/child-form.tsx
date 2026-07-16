@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { Child, Kelurahan, Posyandu } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/ui/back-link";
 import { Form, FormField, FormSelect } from "@/components/ui/form";
 import { getKelurahan, getPosyandu } from "@/lib/children/api";
 
@@ -39,11 +40,13 @@ export function ChildForm({
   onClose,
   onSave,
   presentation = "modal",
+  backHref,
 }: {
   child: Child | null;
   onClose: () => void;
   onSave: (child: Child) => void | Promise<void>;
   presentation?: "modal" | "page";
+  backHref?: string;
 }) {
   const [formData, setFormData] = useState(() => normalizeFormData(child));
   const [isSaving, setIsSaving] = useState(false);
@@ -159,6 +162,7 @@ export function ChildForm({
               ×
             </button>
           )}
+          {presentation === "page" && backHref && <BackLink href={backHref} />}
         </div>
         {error && <p className="px-6 pt-4 text-sm font-medium text-error">{error}</p>}
         <div className="grid gap-5 p-6 sm:grid-cols-2">
@@ -197,6 +201,12 @@ export function ChildForm({
             name="nama_ayah"
             onValueChange={updateField}
             value={formData.nama_ayah}
+          />
+          <FormField
+            label="NIK orang tua"
+            name="nik_ortu"
+            onValueChange={updateField}
+            value={formData.nik_ortu}
           />
           <FormField
             label="No. HP orang tua"
