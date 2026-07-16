@@ -1,5 +1,6 @@
 import type { Child, Kelurahan, Posyandu } from "@/components/children/types";
 import { request } from "@/lib/http/request";
+import type { ChildSort } from "@/lib/children/server";
 
 export type PaginatedChildren = {
   data: Child[];
@@ -14,11 +15,12 @@ type ChildInput = Omit<
   "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
 >;
 
-export function getChildren(page = 1, limit = 10, search?: string, month?: number, year?: number) {
+export function getChildren(page = 1, limit = 10, search?: string, month?: number, year?: number, sort: ChildSort = "name") {
   const searchParams = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (search?.trim()) searchParams.set("q", search.trim());
   if (month) searchParams.set("month", String(month));
   if (year) searchParams.set("year", String(year));
+  if (sort !== "name") searchParams.set("sort", sort);
   return request<PaginatedChildren>(`/api/balita?${searchParams}`);
 }
 

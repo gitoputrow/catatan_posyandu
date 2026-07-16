@@ -5,6 +5,7 @@ import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/
 
 const tableName = "balita";
 export const maxDisplayedAgeInMonths = 60;
+export type ChildSort = "age" | "name" | "newest";
 
 export type ChildInput = Omit<
   Child,
@@ -17,6 +18,7 @@ export async function listChildren(
   search?: string,
   month = new Date().getMonth() + 1,
   year = new Date().getFullYear(),
+  sort: ChildSort = "name",
 ) {
   const from = (page - 1) * limit;
   // Periode bersifat kumulatif dalam satu tahun: Januari sampai bulan pilihan.
@@ -38,8 +40,12 @@ export async function listChildren(
         `nama_anak.ilike.%${safeSearch}%,nik_anak.ilike.%${safeSearch}%,nama_posyandu.ilike.%${safeSearch}%,nama_ibu.ilike.%${safeSearch}%`,
       )
     : query;
-  const result = await filteredQuery
-    .order("nama_anak", { ascending: true })
+  const sortedQuery = sort === "newest"
+    ? filteredQuery.order("registered_at", { ascending: false, nullsFirst: false })
+    : sort === "age"
+      ? filteredQuery.order("tanggal_lahir", { ascending: true, nullsFirst: false })
+      : filteredQuery.order("nama_anak", { ascending: true });
+  const result = await (sort === "name" ? sortedQuery : sortedQuery.order("nama_anak", { ascending: true }))
     .range(from, from + limit - 1);
 
   return result;

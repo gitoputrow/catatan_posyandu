@@ -17,6 +17,7 @@ import {
   updateChild,
 } from "@/lib/children/api";
 import { exportChildrenToExcel } from "@/lib/children/export";
+import type { ChildSort } from "@/lib/children/server";
 
 const pageSize = 10;
 const monthNames = [
@@ -52,12 +53,19 @@ export function ChildrenManager() {
   const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100
     ? requestedYear
     : today.getFullYear();
+  const requestedSort = searchParams.get("sort");
+  const sort: ChildSort = requestedSort === "age" || requestedSort === "newest" ? requestedSort : "name";
   const referenceDate = new Date(year, month, 0);
   const monthOptions = monthNames.map((name, index) => ({ label: name, value: String(index + 1) }));
   const yearOptions = Array.from({ length: 6 }, (_, index) => {
     const option = today.getFullYear() - index;
     return { label: String(option), value: String(option) };
   });
+  const sortOptions = [
+    { label: "Nama", value: "name" },
+    { label: "Umur", value: "age" },
+    { label: "Terbaru Ditambahkan", value: "newest" },
+  ];
 
   useEffect(() => {
     if (!searchParams.has("page")) {
@@ -86,13 +94,21 @@ export function ChildrenManager() {
     router.push(`/children?${params}`);
   }
 
+  function changeSort(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "name") params.delete("sort");
+    else params.set("sort", value);
+    params.set("page", "1");
+    router.push(`/children?${params}`);
+  }
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void (async () => {
         setIsLoading(true);
         setError(null);
         try {
-          const result = await getChildren(page, pageSize, debouncedQuery, month, year);
+          const result = await getChildren(page, pageSize, debouncedQuery, month, year, sort);
           setChildren(result.data);
           setTotal(result.total);
           setTotalPages(result.totalPages);
@@ -108,7 +124,7 @@ export function ChildrenManager() {
       })();
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [debouncedQuery, month, page, reloadKey, year]);
+  }, [debouncedQuery, month, page, reloadKey, sort, year]);
 
   useEffect(() => {
     if (previousSearchRef.current === debouncedQuery) return;
@@ -197,9 +213,10 @@ export function ChildrenManager() {
               {total} balita terdaftar
             </p>
           </div>
-          <div className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:w-auto lg:grid-cols-[9rem_7rem_18rem]">
+          <div className="grid w-full gap-2 sm:grid-cols-2 lg:w-auto lg:grid-cols-[9rem_7rem_12rem_18rem]">
             <SearchableSelect ariaLabel="Pilih bulan" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
             <SearchableSelect ariaLabel="Pilih tahun" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
+            <SearchableSelect ariaLabel="Urutkan balita" className="w-full" onValueChange={changeSort} options={sortOptions} value={sort} />
             <label className="relative block sm:col-span-2 lg:col-span-1">
               <span className="sr-only">Cari data balita</span>
               <input

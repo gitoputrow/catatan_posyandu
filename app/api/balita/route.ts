@@ -1,4 +1,4 @@
-import { createChild, listChildren, type ChildInput } from "@/lib/children/server";
+import { createChild, listChildren, type ChildInput, type ChildSort } from "@/lib/children/server";
 import { isSameOriginRequest } from "@/lib/auth/csrf";
 import { badRequest, forbidden, withApiErrorHandling } from "@/app/api/_shared/response";
 import { NextResponse } from "next/server";
@@ -23,6 +23,8 @@ export async function GET(request: Request) {
     const pageValue = Number(searchParams.get("page") ?? "1");
     const limitValue = Number(searchParams.get("limit") ?? String(defaultLimit));
     const search = searchParams.get("q") ?? undefined;
+    const requestedSort = searchParams.get("sort");
+    const sort: ChildSort = requestedSort === "age" || requestedSort === "newest" ? requestedSort : "name";
     const now = new Date();
     const requestedMonth = Number(searchParams.get("month") ?? String(now.getMonth() + 1));
     const requestedYear = Number(searchParams.get("year") ?? String(now.getFullYear()));
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
     const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100
       ? requestedYear
       : now.getFullYear();
-    const { data, error, count } = await listChildren(page, limit, search, month, year);
+    const { data, error, count } = await listChildren(page, limit, search, month, year, sort);
     if (error) throw error;
 
     const total = count ?? 0;
@@ -46,6 +48,7 @@ export async function GET(request: Request) {
       totalPages: Math.max(1, Math.ceil(total / limit)),
       month,
       year,
+      sort,
     });
   });
 }
