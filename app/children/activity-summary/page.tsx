@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { ActivitySummaryManager } from "@/components/children/activity-summary-manager";
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function ActivitySummaryPage() {
-  return <ActivitySummaryManager />;
+  return (
+    <Suspense fallback={null}>
+      <ActivitySummaryManager />
+    </Suspense>
+  );
 }
