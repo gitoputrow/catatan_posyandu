@@ -1,7 +1,7 @@
+import JSZip from "jszip";
 import * as XLSX from "xlsx-js-style";
 
 import type { GebyarReport } from "@/components/reports/gebyar/types";
-import type { User } from "@/components/user/types";
 
 const monthNames = [
   "JANUARI",
@@ -18,7 +18,11 @@ const monthNames = [
   "DESEMBER",
 ];
 
-export function exportGebyarReport(report: GebyarReport, user: User) {
+export async function exportGebyarReport(
+  report: GebyarReport,
+  chairName: string,
+  signatureFile: File,
+) {
   const rows = Array.from({ length: 61 }, () =>
     Array.from({ length: 15 }, () => "" as string | number),
   );
@@ -274,7 +278,7 @@ export function exportGebyarReport(report: GebyarReport, user: User) {
   }).format(new Date());
   set("H56", `${report.identity.cityOrRegency ?? "Jakarta"}, ${exportDate}`);
   set("H57", "Ketua Posyandu,");
-  set("H61", (user.nama ?? "").toUpperCase());
+  set("H61", chairName.toUpperCase());
 
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
   worksheet["!merges"] = [
@@ -289,6 +293,7 @@ export function exportGebyarReport(report: GebyarReport, user: User) {
     "E13:G13",
     "H13:J13",
     "B15:C15",
+    "H58:J60",
   ].map((range) => XLSX.utils.decode_range(range));
   worksheet["!cols"] = [
     4.5, 5.2, 29.3, 2.2, 14.8, 10.2, 5.2, 29, 2, 14, 7.3, 5.3, 6, 3.5, 5.2,
@@ -312,11 +317,105 @@ export function exportGebyarReport(report: GebyarReport, user: User) {
   styleWorksheet(worksheet);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Gebyar Posyandu");
-  XLSX.writeFile(
-    workbook,
+  const workbookBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    compression: true,
+    type: "array",
+  }) as ArrayBuffer;
+  const extension = getImageExtension(signatureFile);
+  const output = await embedSignatureImage(workbookBuffer, signatureFile, extension);
+  downloadWorkbook(
+    output,
     `FORM GEBYAR POSYANDU ${monthNames[report.month - 1]} ${report.year}.xlsx`,
-    { compression: true },
   );
+}
+
+function getImageExtension(file: File): "jpeg" | "png" {
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/jpeg") return "jpeg";
+  throw new Error("Foto tanda tangan harus berformat PNG atau JPG.");
+}
+
+async function embedSignatureImage(
+  workbookBuffer: ArrayBuffer,
+  signatureFile: File,
+  extension: "jpeg" | "png",
+) {
+  const zip = await JSZip.loadAsync(workbookBuffer);
+  const sheetPath = "xl/worksheets/sheet1.xml";
+  const relationshipPath = "xl/worksheets/_rels/sheet1.xml.rels";
+  const contentTypesPath = "[Content_Types].xml";
+  const sheetXml = await readZipText(zip, sheetPath);
+  const contentTypesXml = await readZipText(zip, contentTypesPath);
+  const existingRelationships = zip.file(relationshipPath)
+    ? await readZipText(zip, relationshipPath)
+    : null;
+  const relationshipId = getNextRelationshipId(existingRelationships);
+  const mediaFilename = `signature.${extension}`;
+
+  zip.file(`xl/media/${mediaFilename}`, new Uint8Array(await signatureFile.arrayBuffer()));
+  zip.file("xl/drawings/drawing1.xml", createSignatureDrawingXml());
+  zip.file("xl/drawings/_rels/drawing1.xml.rels", createDrawingRelationshipsXml(mediaFilename));
+  zip.file(
+    relationshipPath,
+    appendRelationship(existingRelationships, relationshipId),
+  );
+  zip.file(
+    sheetPath,
+    sheetXml.replace("</worksheet>", `<drawing r:id="${relationshipId}"/></worksheet>`),
+  );
+  zip.file(
+    contentTypesPath,
+    contentTypesXml.replace(
+      "</Types>",
+      '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
+    ),
+  );
+
+  return zip.generateAsync({
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+    type: "uint8array",
+  });
+}
+
+async function readZipText(zip: JSZip, path: string) {
+  const file = zip.file(path);
+  if (!file) throw new Error(`Bagian workbook ${path} tidak ditemukan.`);
+  return file.async("string");
+}
+
+function getNextRelationshipId(xml: string | null) {
+  const ids = [...(xml ?? "").matchAll(/Id="rId(\d+)"/g)].map((match) => Number(match[1]));
+  return `rId${Math.max(0, ...ids) + 1}`;
+}
+
+function appendRelationship(xml: string | null, relationshipId: string) {
+  const relationship = `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>`;
+  if (xml) return xml.replace("</Relationships>", `${relationship}</Relationships>`);
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relationship}</Relationships>`;
+}
+
+function createDrawingRelationshipsXml(mediaFilename: string) {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${mediaFilename}"/></Relationships>`;
+}
+
+function createSignatureDrawingXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>7</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>57</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:ext cx="1428750" cy="457200"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="2" name="Tanda Tangan Ketua Posyandu"/><xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="457200"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`;
+}
+
+function downloadWorkbook(buffer: Uint8Array, filename: string) {
+  const bytes = new Uint8Array(buffer.length);
+  bytes.set(buffer);
+  const blob = new Blob([bytes.buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 type Setter = (cell: string, value: string | number | null | undefined) => void;

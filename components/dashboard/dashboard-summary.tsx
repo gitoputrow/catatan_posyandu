@@ -4,11 +4,12 @@ import type { DashboardData } from "@/components/dashboard/types";
 type DashboardSummaryProps = {
   data: Pick<DashboardData, "ageGroups" | "generatedAt"> | null;
   isLoading: boolean;
+  showAgeGroups?: boolean;
   showFeaturedMeta?: boolean;
   total?: number;
 };
 
-export function DashboardSummary({ data, isLoading, showFeaturedMeta = true, total: totalOverride }: DashboardSummaryProps) {
+export function DashboardSummary({ data, isLoading, showAgeGroups = true, showFeaturedMeta = true, total: totalOverride }: DashboardSummaryProps) {
   const ageGroups = data?.ageGroups;
   const ageGroupTotal = ageGroups
     ? ageGroups.infantMale + ageGroups.infantFemale + ageGroups.childMale + ageGroups.childFemale
@@ -22,7 +23,7 @@ export function DashboardSummary({ data, isLoading, showFeaturedMeta = true, tot
       color: "bg-text-primary/10 text-text-primary",
       featured: true,
     },
-    {
+    ...(showAgeGroups ? [{
       label: "Usia 0–12 Bulan",
       detail: "Laki-laki",
       value: ageGroups?.infantMale ?? 0,
@@ -45,7 +46,7 @@ export function DashboardSummary({ data, isLoading, showFeaturedMeta = true, tot
       detail: "Perempuan",
       value: ageGroups?.childFemale ?? 0,
       color: "bg-accent/10 text-accent",
-    },
+    }] : []),
   ];
 
   return (

@@ -27,6 +27,10 @@ export type SavedGebyarReport = {
 };
 
 export type GebyarReport = {
+  cadres: Array<{
+    id: string;
+    name: string;
+  }>;
   savedReport: SavedGebyarReport | null;
   additionalPrograms: {
     bkb: number | null;

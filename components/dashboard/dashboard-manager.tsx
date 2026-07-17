@@ -6,6 +6,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSummary } from "@/components/dashboard/dashboard-summary";
 import { GrowthTrendSummary } from "@/components/dashboard/growth-trend-summary";
 import { MonthlyWeighingChart } from "@/components/dashboard/monthly-weighing-chart";
+import { PosyanduInformation } from "@/components/dashboard/posyandu-information";
 import type { DashboardData } from "@/components/dashboard/types";
 import { getDashboardData } from "@/lib/dashboard/api";
 
@@ -45,7 +46,13 @@ export function DashboardManager() {
         </p>
       )}
 
-      <DashboardSummary data={data} isLoading={isLoading} />
+      <PosyanduInformation data={data?.posyandu} isLoading={isLoading} />
+      <DashboardSummary
+        data={data}
+        isLoading={isLoading}
+        showAgeGroups={false}
+        total={data?.totalChildren}
+      />
       <GrowthTrendSummary
         description="Menggunakan bulan penimbangan terbaru dan dibandingkan dengan pencatatan sebelumnya."
         isLoading={isLoading}

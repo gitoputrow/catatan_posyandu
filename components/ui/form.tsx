@@ -4,6 +4,7 @@ import {
   Children,
   isValidElement,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -15,6 +16,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 
 const inputClassName = "h-11 w-full rounded-lg border border-border bg-surface px-3 font-normal text-text-primary outline-none placeholder:text-text-disabled focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -87,7 +89,10 @@ export function SearchableSelect({
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0, width: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const selectedValue = String(value ?? "");
   const selectedOption = options.find((option) => option.value === selectedValue);
   const filteredOptions = options.filter((option) =>
@@ -96,7 +101,8 @@ export function SearchableSelect({
 
   useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
-      if (!wrapperRef.current?.contains(event.target as Node)) setIsOpen(false);
+      const target = event.target as Node;
+      if (!wrapperRef.current?.contains(target) && !menuRef.current?.contains(target)) setIsOpen(false);
     }
 
     function closeOnEscape(event: KeyboardEvent) {
@@ -111,6 +117,33 @@ export function SearchableSelect({
     };
   }, []);
 
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    function updateMenuPosition() {
+      const button = buttonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const estimatedHeight = 320;
+      const openAbove = spaceBelow < Math.min(240, estimatedHeight) && spaceAbove > spaceBelow;
+      setMenuPosition({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+        top: openAbove ? Math.max(8, rect.top - Math.min(estimatedHeight, spaceAbove)) : rect.bottom + 8,
+        width: rect.width,
+      });
+    }
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isOpen]);
+
   return (
     <div className={`relative ${className}`} ref={wrapperRef}>
       {name && <input name={name} required={required} type="hidden" value={selectedValue} />}
@@ -119,6 +152,7 @@ export function SearchableSelect({
         aria-label={ariaLabel}
         className={`${inputClassName} flex items-center justify-between gap-3 pr-3 text-left disabled:cursor-not-allowed disabled:opacity-60`}
         disabled={disabled}
+        ref={buttonRef}
         onClick={() => {
           setIsOpen((current) => !current);
           setQuery("");
@@ -130,8 +164,13 @@ export function SearchableSelect({
         </span>
         <svg aria-hidden="true" className={`size-4 shrink-0 text-text-secondary transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
       </button>
-      {isOpen && !disabled && (
-        <div className="absolute left-0 right-0 z-40 mt-2 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+      {isOpen && !disabled && createPortal(
+        <div
+          className="fixed z-[100] overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
+          onWheel={(event) => event.stopPropagation()}
+          ref={menuRef}
+          style={menuPosition}
+        >
           <div className="border-b border-border p-2">
             <input
               autoFocus
@@ -141,7 +180,7 @@ export function SearchableSelect({
               value={query}
             />
           </div>
-          <div className="max-h-60 space-y-1 overflow-y-auto p-1">
+          <div className="max-h-60 space-y-1 overflow-y-auto overscroll-contain p-1">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((option) => (
                 <button
@@ -177,7 +216,8 @@ export function SearchableSelect({
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

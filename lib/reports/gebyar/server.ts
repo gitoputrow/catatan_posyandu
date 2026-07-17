@@ -24,6 +24,11 @@ type AttendanceRow = {
   total_pus: number | null;
 };
 
+type CadreRow = {
+  id: string;
+  nama: string | null;
+};
+
 type ActivityRow = {
   balita_kmsk: boolean | null;
   dapat_vit_a: boolean | null;
@@ -105,9 +110,10 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
       .single(),
     supabase
       .from("petugas")
-      .select("id")
+      .select("id, nama")
       .eq("posyandu_id", posyanduId)
-      .eq("jenis_petugas", "kader"),
+      .eq("jenis_petugas", "kader")
+      .order("nama", { ascending: true }),
     supabase
       .from("laporan_kehadiran_posyandu")
       .select("id_petugas, total_ibu_hamil, total_pus")
@@ -159,12 +165,14 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
   } : null;
   const targetFamilies = gebyar?.dana_sehat_total_keluarga_sasaran ?? null;
   const contributingFamilies = gebyar?.dana_sehat_total_sumbangan ?? null;
-  const cadreIds = new Set((cadreResult.data ?? []).map((cadre) => cadre.id));
+  const cadres = (cadreResult.data ?? []) as CadreRow[];
+  const cadreIds = new Set(cadres.map((cadre) => cadre.id));
   const presentCadres = new Set(
     (attendance?.id_petugas ?? []).filter((officerId) => cadreIds.has(officerId)),
   ).size;
 
   return {
+    cadres: cadres.map((cadre) => ({ id: cadre.id, name: cadre.nama ?? "-" })),
     month,
     year,
     savedReport: gebyar,

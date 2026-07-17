@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useCurrentUser } from "@/components/user/user-provider";
 import { logout } from "@/lib/auth/api";
 
@@ -22,7 +23,7 @@ type NavigationGroup = {
 const navigationItems: NavigationItem[] = [
   {
     href: "/dashboard",
-    label: "Ringkasan",
+    label: "Dashboard",
     icon: <GridIcon />,
   },
 ];
@@ -60,6 +61,7 @@ export function DashboardSidebar() {
   const router = useRouter();
   const { canManage, error, user } = useCurrentUser();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState(
@@ -70,6 +72,7 @@ export function DashboardSidebar() {
     setIsLoggingOut(true);
     try {
       await logout();
+      setIsLogoutConfirmOpen(false);
       router.replace("/login");
       router.refresh();
     } catch (error) {
@@ -260,7 +263,7 @@ export function DashboardSidebar() {
           aria-label="Keluar"
           className={`mt-6 flex h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-error transition-colors hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-60 ${isCollapsed ? "lg:justify-center lg:px-0" : ""}`}
           disabled={isLoggingOut}
-          onClick={() => void handleLogout()}
+          onClick={() => setIsLogoutConfirmOpen(true)}
           type="button"
         >
           <LogoutIcon />
@@ -281,6 +284,15 @@ export function DashboardSidebar() {
           </button>
         </div>
       </aside>
+      <ConfirmationDialog
+        confirmLabel="Ya, Keluar"
+        description="Anda akan keluar dari akun dan perlu masuk kembali untuk mengakses CatatanPosyandu."
+        isLoading={isLoggingOut}
+        isOpen={isLogoutConfirmOpen}
+        onCancel={() => setIsLogoutConfirmOpen(false)}
+        onConfirm={() => void handleLogout()}
+        title="Keluar dari akun?"
+      />
     </>
   );
 }

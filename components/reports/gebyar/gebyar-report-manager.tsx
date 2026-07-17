@@ -9,7 +9,6 @@ import { SearchableSelect } from "@/components/ui/form";
 import { useCurrentUser } from "@/components/user/user-provider";
 import { getGebyarReport } from "@/lib/reports/gebyar/api";
 import { exportGebyarReport } from "@/lib/reports/gebyar/export";
-import { getUser } from "@/lib/user/api";
 
 const monthNames = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -26,6 +25,9 @@ export function GebyarReportManager() {
   const [report, setReport] = useState<GebyarReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [selectedChairId, setSelectedChairId] = useState("");
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const monthOptions = monthNames.map((label, index) => ({ label, value: String(index + 1) }));
   const yearOptions = Array.from({ length: 6 }, (_, index) => {
@@ -50,6 +52,19 @@ export function GebyarReportManager() {
     return () => { isActive = false; };
   }, [month, year]);
 
+  useEffect(() => {
+    if (!isExportDialogOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [isExportDialogOpen]);
+
   function changePeriod(nextMonth: number, nextYear: number) {
     setMonth(nextMonth);
     setYear(nextYear);
@@ -59,11 +74,26 @@ export function GebyarReportManager() {
   const identity = report?.identity;
 
   async function exportReport() {
-    if (!report) return;
+    if (!report || !selectedChairId || !signatureFile) {
+      setError("Pilih nama ketua dan unggah foto tanda tangan terlebih dahulu.");
+      return;
+    }
+    const chair = report.cadres.find((cadre) => cadre.id === selectedChairId);
+    if (!chair) {
+      setError("Ketua Posyandu harus dipilih dari daftar kader.");
+      return;
+    }
+    if (signatureFile.size > 5 * 1024 * 1024) {
+      setError("Ukuran foto tanda tangan maksimal 5 MB.");
+      return;
+    }
     setIsExporting(true);
     setError(null);
     try {
-      exportGebyarReport(report, await getUser());
+      await exportGebyarReport(report, chair.name, signatureFile);
+      setIsExportDialogOpen(false);
+      setSelectedChairId("");
+      setSignatureFile(null);
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "Gebyar Bulanan gagal diekspor.");
     } finally {
@@ -72,6 +102,7 @@ export function GebyarReportManager() {
   }
 
   return (
+    <>
     <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
       <header className="flex flex-col gap-5">
         <div>
@@ -84,7 +115,7 @@ export function GebyarReportManager() {
             <SearchableSelect ariaLabel="Pilih bulan" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
             <SearchableSelect ariaLabel="Pilih tahun" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
           </div>
-          <Button disabled={!report || isExporting} onClick={() => void exportReport()} variant="outline">{isExporting ? "Mengekspor..." : "Export"}</Button>
+          <Button disabled={!report || isExporting} onClick={() => { setError(null); setIsExportDialogOpen(true); }} variant="outline">Export</Button>
           {canManage && <Button disabled={isLoading} onClick={() => router.push(`/reports/gebyar/create?period=${year}-${String(month).padStart(2, "0")}`)}>{report?.savedReport ? "Edit" : "Tambah"}</Button>}
         </div>
       </header>
@@ -245,6 +276,45 @@ export function GebyarReportManager() {
         )}
       </section>
     </main>
+    {isExportDialogOpen && report && (
+      <div aria-modal="true" className="fixed inset-0 z-100 grid place-items-center bg-text-primary/45 p-4" role="dialog">
+        <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-surface shadow-lg">
+          <div className="px-6 py-5">
+            <h2 className="text-lg font-extrabold text-text-primary">Pengesahan Laporan Gebyar</h2>
+            <p className="mt-1 text-sm leading-6 text-text-secondary">Pilih ketua Posyandu dan unggah foto tanda tangan untuk dimasukkan ke file Excel.</p>
+            {error && <p className="mt-4 rounded-lg border border-error/20 bg-error/5 px-4 py-3 text-sm font-medium text-error">{error}</p>}
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-bold text-text-primary">Nama Ketua</label>
+                <SearchableSelect
+                  ariaLabel="Pilih ketua Posyandu"
+                  onValueChange={(value) => setSelectedChairId(String(value))}
+                  options={report.cadres.map((cadre) => ({ label: cadre.name, value: cadre.id }))}
+                  placeholder="Pilih kader"
+                  value={selectedChairId}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-bold text-text-primary" htmlFor="gebyar-signature">Foto Tanda Tangan</label>
+                <input
+                  accept="image/png,image/jpeg"
+                  className="block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:font-semibold file:text-primary"
+                  id="gebyar-signature"
+                  onChange={(event) => setSignatureFile(event.target.files?.[0] ?? null)}
+                  type="file"
+                />
+                <p className="mt-1.5 text-xs text-text-secondary">Format PNG atau JPG, maksimal 5 MB.</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 border-t border-border bg-background px-6 py-4">
+            <Button disabled={isExporting} onClick={() => setIsExportDialogOpen(false)} variant="outline">Batal</Button>
+            <Button disabled={!selectedChairId || !signatureFile} isLoading={isExporting} onClick={() => void exportReport()}>Export Excel</Button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

@@ -16,6 +16,14 @@ type DashboardMeasurement = {
   periode_bulan: string;
 };
 
+type DashboardPosyandu = {
+  nama_posyandu: string | null;
+  rt: string | null;
+  rw: string | null;
+  nama_kelurahan: string | null;
+  nama_kecamatan: string | null;
+};
+
 export async function getDashboardData(year: number): Promise<DashboardData> {
   const now = new Date();
   const referenceMonth = now.getMonth() + 1;
@@ -27,7 +35,17 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
   const oldestBirthDate = getOldestDisplayedBirthDate(referenceMonth, referenceYear);
   const { supabase, posyanduId } = await getAuthenticatedPetugas();
 
-  const [childrenResult, measurementsResult, latestTrendPeriodResult] = await Promise.all([
+  const [posyanduResult, cadreResult, childrenResult, measurementsResult, latestTrendPeriodResult] = await Promise.all([
+    supabase
+      .from("posyandu")
+      .select("nama_posyandu, rt, rw, nama_kelurahan, nama_kecamatan")
+      .eq("id", posyanduId)
+      .single(),
+    supabase
+      .from("petugas")
+      .select("id", { count: "exact", head: true })
+      .eq("posyandu_id", posyanduId)
+      .eq("jenis_petugas", "kader"),
     supabase
       .from("balita")
       .select("id, jenis_kelamin, tanggal_lahir")
@@ -52,6 +70,8 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
       .maybeSingle(),
   ]);
 
+  if (posyanduResult.error) throw posyanduResult.error;
+  if (cadreResult.error) throw cadreResult.error;
   if (childrenResult.error) throw childrenResult.error;
   if (measurementsResult.error) throw measurementsResult.error;
   if (latestTrendPeriodResult.error) throw latestTrendPeriodResult.error;
@@ -101,10 +121,20 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
         trendPeriods.previousStart,
       )
     : emptyGrowthTrendSummary();
+  const posyandu = posyanduResult.data as DashboardPosyandu;
 
   return {
     year,
     generatedAt: new Date().toISOString(),
+    posyandu: {
+      name: posyandu.nama_posyandu,
+      rt: posyandu.rt,
+      rw: posyandu.rw,
+      village: posyandu.nama_kelurahan,
+      district: posyandu.nama_kecamatan,
+      cadreCount: cadreResult.count ?? 0,
+    },
+    totalChildren: childrenResult.data?.length ?? 0,
     ageGroups,
     growthTrends,
     growthTrendPeriod: latestTrendPeriod,
