@@ -158,6 +158,14 @@ function applyStyles(worksheet: XLSX.WorkSheet) {
     left: { style: "thin", color: { rgb: "000000" } },
     right: { style: "thin", color: { rgb: "000000" } },
   };
+
+  const isRotatedText = (address: string) => {
+    const rotatedTextAddresses = [
+      "C6", "D6", "E6", "F6", "G7", "H7", "I7", "J7", "K7", "L7", "M7", "N7",
+    ];
+    return rotatedTextAddresses.includes(address);
+  }
+
   const headerFill = { patternType: "solid", fgColor: { rgb: "D9EAD3" } };
 
   for (let row = 5; row <= 32; row++) {
@@ -167,7 +175,7 @@ function applyStyles(worksheet: XLSX.WorkSheet) {
       worksheet[address].s = {
         fill: row <= 11 ? headerFill : undefined,
         font: { bold: row <= 11 || row === 32, name: "Calibri", sz: row <= 11 ? 8 : 10 },
-        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true, textRotation: isRotatedText(address) ? 180 : 0 },
         border,
       };
     }
