@@ -293,7 +293,7 @@ export async function exportGebyarReport(
     "E13:G13",
     "H13:J13",
     "B15:C15",
-    "H58:J60",
+    "H58:H60",
   ].map((range) => XLSX.utils.decode_range(range));
   worksheet["!cols"] = [
     4.5, 5.2, 29.3, 2.2, 14.8, 10.2, 5.2, 29, 2, 14, 7.3, 5.3, 6, 3.5, 5.2,
