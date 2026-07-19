@@ -42,6 +42,7 @@ function isGebyarReportInput(value: unknown): value is GebyarReportInput {
   if (!value || typeof value !== "object") return false;
   const report = value as Partial<GebyarReportInput>;
   const numericFields: Array<keyof GebyarReportInput> = [
+    "total_pus_binaan", "total_kb_binaan", "total_kb_dilayani",
     "program_tambahan_total_ppks", "program_tambahan_total_bkb", "program_tambahan_total_paud",
     "program_tambahan_total_gsi", "program_tambahan_total_psn", "program_tambahan_total_lainnya",
     "mitra_total_perusahaan", "mitra_total_bumn_bumd", "mitra_total_kantor_dinas", "mitra_total_lsm_lsom",

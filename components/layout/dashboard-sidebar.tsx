@@ -35,6 +35,7 @@ const navigationGroups: NavigationGroup[] = [
     items: [
       { href: "/reports/monthly-attendance", label: "Kehadiran Bulanan" },
       { href: "/reports/monthly-activity", label: "Kegiatan Bulanan" },
+      { href: "/reports/monthly-results", label: "Kegiatan Penimbangan" },
       { href: "/reports/gebyar", label: "Gebyar Bulanan" },
     ],
   },

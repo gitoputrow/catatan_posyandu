@@ -169,9 +169,9 @@ export function GebyarReportManager() {
                 <ActivityTableRow description="Status pemberian vitamin A bagi balita pada laporan kegiatan." label="Pemberian Vitamin A" value={formatActivityStatus(report?.healthOfMotherAndChild.vitaminAProvided)} />
 
                 <ActivityGroupRow title="2. KB (Keluarga Berencana)" />
-                <ActivityTableRow description="Jumlah Pasangan Usia Subur berdasarkan laporan kehadiran." label="PUS Binaan" value={report?.familyPlanning.coachedCouplesOfReproductiveAge ?? 0} />
-                <ActivityTableRow description="Sumber data peserta KB binaan belum ditentukan." label="Peserta KB Binaan" value={report?.familyPlanning.coachedParticipants ?? "-"} />
-                <ActivityTableRow description="Akumulasi seluruh metode pelayanan KB di bawah ini." emphasized label="Peserta KB yang Dilayani" value={report?.familyPlanning.servedParticipants?.total ?? "-"} />
+                <ActivityTableRow description="Berdasarkan isian PUS binaan pada laporan Gebyar." label="PUS Binaan" value={report?.familyPlanning.coachedCouplesOfReproductiveAge ?? "-"} />
+                <ActivityTableRow description="Berdasarkan isian peserta KB binaan pada laporan Gebyar." label="Peserta KB Binaan" value={report?.familyPlanning.coachedParticipants ?? "-"} />
+                <ActivityTableRow description="Berdasarkan isian peserta KB yang dilayani pada laporan Gebyar." emphasized label="Peserta KB yang Dilayani" value={report?.familyPlanning.servedParticipants?.total ?? "-"} />
                 <ActivityTableRow child label="IUD" value={report?.familyPlanning.servedParticipants?.iud ?? "-"} />
                 <ActivityTableRow child label="Implant" value={report?.familyPlanning.servedParticipants?.implant ?? "-"} />
                 <ActivityTableRow child label="Suntik" value={report?.familyPlanning.servedParticipants?.injection ?? "-"} />

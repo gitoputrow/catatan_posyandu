@@ -21,7 +21,6 @@ type PosyanduRow = {
 type AttendanceRow = {
   id_petugas: string[] | null;
   total_ibu_hamil: number | null;
-  total_pus: number | null;
 };
 
 type CadreRow = {
@@ -116,7 +115,7 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
       .order("nama", { ascending: true }),
     supabase
       .from("laporan_kehadiran_posyandu")
-      .select("id_petugas, total_ibu_hamil, total_pus")
+      .select("id_petugas, total_ibu_hamil")
       .eq("posyandu_id", posyanduId)
       .gte("periode", monthStart)
       .lt("periode", monthEnd)
@@ -135,7 +134,7 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
     getNutritionSummary(supabase, posyanduId, month, year),
     supabase
       .from(tableName)
-      .select("id, periode, pemberian_tambahan_makanan, program_tambahan_total_ppks, program_tambahan_total_bkb, program_tambahan_total_paud, program_tambahan_total_gsi, program_tambahan_total_psn, program_tambahan_total_lainnya, mitra_total_perusahaan, mitra_total_bumn_bumd, mitra_total_kantor_dinas, mitra_total_lsm_lsom, dana_sehat_total_keluarga_sasaran, dana_sehat_total_sumbangan")
+      .select("id, periode, total_pus_binaan, total_kb_binaan, total_kb_dilayani, pemberian_tambahan_makanan, program_tambahan_total_ppks, program_tambahan_total_bkb, program_tambahan_total_paud, program_tambahan_total_gsi, program_tambahan_total_psn, program_tambahan_total_lainnya, mitra_total_perusahaan, mitra_total_bumn_bumd, mitra_total_kantor_dinas, mitra_total_lsm_lsom, dana_sehat_total_keluarga_sasaran, dana_sehat_total_sumbangan")
       .eq("posyandu_id", posyanduId)
       .gte("periode", monthStart)
       .lt("periode", monthEnd)
@@ -191,12 +190,17 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
       childrenSuspectedDiarrhea: sumGender(activity, "total_balita_diare_l", "total_balita_diare_p"),
     },
     familyPlanning: {
-      coachedCouplesOfReproductiveAge: attendance?.total_pus ?? 0,
-      coachedParticipants: null,
+      coachedCouplesOfReproductiveAge: gebyar?.total_pus_binaan ?? null,
+      coachedParticipants: gebyar?.total_kb_binaan ?? null,
       servedParticipants: servedParticipants ? {
         ...servedParticipants,
-        total: Object.values(servedParticipants).reduce((total, value) => total + value, 0),
-      } : null,
+        total: gebyar?.total_kb_dilayani ?? 0,
+      } : gebyar?.total_kb_dilayani === null || gebyar?.total_kb_dilayani === undefined
+        ? null
+        : {
+            condom: 0, implant: 0, injection: 0, iud: 0, pill: 0, sterilization: 0,
+            total: gebyar.total_kb_dilayani,
+          },
     },
     healthyFund: {
       contributingFamilies,
@@ -261,6 +265,9 @@ export async function saveGebyarReport(input: GebyarReportInput) {
   const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const payload = {
+    total_pus_binaan: input.total_pus_binaan,
+    total_kb_binaan: input.total_kb_binaan,
+    total_kb_dilayani: input.total_kb_dilayani,
     pemberian_tambahan_makanan: input.pemberian_tambahan_makanan,
     program_tambahan_total_ppks: input.program_tambahan_total_ppks,
     program_tambahan_total_bkb: input.program_tambahan_total_bkb,

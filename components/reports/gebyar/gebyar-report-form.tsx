@@ -9,6 +9,12 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Form, FormField } from "@/components/ui/form";
 import { getGebyarReport, saveGebyarReport } from "@/lib/reports/gebyar/api";
 
+const familyPlanningFields = [
+  ["total_pus_binaan", "Jumlah PUS Binaan"],
+  ["total_kb_binaan", "Jumlah Peserta KB Binaan"],
+  ["total_kb_dilayani", "Jumlah Peserta KB yang Dilayani"],
+] as const;
+
 const programFields = [
   ["program_tambahan_total_ppks", "Jumlah PPKS"],
   ["program_tambahan_total_bkb", "Jumlah BKB"],
@@ -30,7 +36,7 @@ const healthyFundFields = [
   ["dana_sehat_total_sumbangan", "Jumlah Keluarga Menyumbang"],
 ] as const;
 
-const numberFields = [...programFields, ...partnerFields, ...healthyFundFields] as const;
+const numberFields = [...familyPlanningFields, ...programFields, ...partnerFields, ...healthyFundFields] as const;
 type NumberField = typeof numberFields[number][0];
 type SupplementaryFoodValue = "true" | "false" | "null";
 
@@ -124,7 +130,7 @@ export function GebyarReportForm() {
             <SummaryItem label="Posyandu" value={overview.identity.posyanduName} />
             <SummaryItem label="Kader Hadir" value={`${overview.identity.presentCadres} / ${overview.identity.totalCadres}`} />
             <SummaryItem label="Bumil / Diperiksa" value={`${overview.healthOfMotherAndChild.totalPregnantWomen} / ${overview.healthOfMotherAndChild.pregnantWomenExamined ?? "-"}`} />
-            <SummaryItem label="PUS / Peserta KB" value={`${overview.familyPlanning.coachedCouplesOfReproductiveAge} / ${overview.familyPlanning.servedParticipants?.total ?? "-"}`} />
+            <SummaryItem label="PUS / KB Binaan / Dilayani" value={`${overview.familyPlanning.coachedCouplesOfReproductiveAge ?? "-"} / ${overview.familyPlanning.coachedParticipants ?? "-"} / ${overview.familyPlanning.servedParticipants?.total ?? "-"}`} />
             <SummaryItem label="Balita / Ditimbang" value={`${overview.nutrition.totalChildren} / ${overview.nutrition.weighedChildren}`} />
             <SummaryItem label="BB Naik / Tidak" value={`${overview.nutrition.weightUp} / ${overview.nutrition.weightNotUp}`} />
             <SummaryItem label="Total Imunisasi" value={getImmunizationTotal(overview)} />
@@ -132,6 +138,8 @@ export function GebyarReportForm() {
           </div>
         ) : null}
       </section>
+
+      <NumberSection description="Isi jumlah PUS binaan, peserta KB binaan, dan peserta KB yang dilayani." fields={familyPlanningFields} numbers={numbers} onChange={(name, value) => setNumbers((current) => ({ ...current, [name]: value }))} title="KB (Keluarga Berencana)" />
 
       <FormSection description="Pilih status pemberian makanan tambahan pada periode laporan." title="Pemberian Makanan Tambahan">
         <fieldset className="sm:col-span-2">

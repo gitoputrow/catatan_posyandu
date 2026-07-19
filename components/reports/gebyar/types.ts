@@ -11,6 +11,9 @@ export type GebyarPosyanduIdentity = {
 export type SavedGebyarReport = {
   id: string;
   periode: string;
+  total_pus_binaan: number | null;
+  total_kb_binaan: number | null;
+  total_kb_dilayani: number | null;
   pemberian_tambahan_makanan: boolean | null;
   program_tambahan_total_ppks: number | null;
   program_tambahan_total_bkb: number | null;
@@ -54,7 +57,7 @@ export type GebyarReport = {
   };
   supplementaryFeeding: boolean | null;
   familyPlanning: {
-    coachedCouplesOfReproductiveAge: number;
+    coachedCouplesOfReproductiveAge: number | null;
     coachedParticipants: number | null;
     servedParticipants: {
       condom: number;
