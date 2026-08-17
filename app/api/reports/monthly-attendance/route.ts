@@ -73,7 +73,8 @@ function isMonthlyAttendanceInput(value: unknown): value is MonthlyAttendanceInp
   const numericFields: Array<keyof MonthlyAttendanceInput> = [
     "total_pus", "total_wus", "total_ibu_hamil", "total_ibu_menyusui",
     "total_pria_plkb", "total_wanita_plkb", "total_pria_medis", "total_wanita_medis",
-    "total_balita_meninggal", "total_balita_lahir",
+    "total_balita_pria_meninggal", "total_balita_wanita_meninggal",
+    "total_balita_pria_lahir", "total_balita_wanita_lahir",
   ];
   return typeof report.periode === "string" && /^\d{4}-(0[1-9]|1[0-2])(?:-\d{2})?$/.test(report.periode) &&
     Array.isArray(report.id_petugas) && report.id_petugas.length > 0 && report.id_petugas.every((id) => typeof id === "string" && id.length > 0) &&

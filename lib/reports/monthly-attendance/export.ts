@@ -15,10 +15,10 @@ export function exportMonthlyAttendanceReport(report: MonthlyAttendanceReport, u
     [`BULAN : ${monthNames[report.month - 1]}`],
     ["NO", "NAMA POSYANDU", "JUMLAH PENGUNJUNG", "", "", "", "", "", "", "", "", "", "", "", "JUMLAH PETUGAS YANG HADIR", "", "", "", "", "", "JUMLAH BAYI", "", "", "", "KET"],
     ["", "", "BALITA", "", "", "", "", "", "", "", "", "", "", ""],
-    ["", "", "", "BAYI", "", "", "", "BALITA", "", "", "WUS", "IBU", "", "", "KADER", "", "PLKB", "", "MEDIS", ""],
-    ["", "", "", "0-12 BULAN", "", "", "", "1-5 TAHUN", "", "", "PUS", "HAMIL", "MENYUSUI", "", "", "", "", "", "DAN PARA", "", "TOTAL", "", "TOTAL", ""],
-    ["", "", "BARU", "", "LAMA", "", "BARU", "", "LAMA", "", "", "", "", "", "", "", "", "", "MEDIS", "", "LAHIR", "", "MENINGGAL", ""],
-    ["", "", "L", "P", "L", "P", "L", "P", "L", "P", "", "", "", "", "L", "P", "L", "P", "L", "P", "", "", "", "", ""],
+    ["", "", "BAYI", "", "", "", "BALITA", "", "", "", "WUS", "PUS", "IBU", "", "KADER", "", "PLKB", "", "MEDIS DAN PARA MEDIS", ""],
+    ["", "", "0-12 BULAN", "", "", "", "1-5 TAHUN", "", "", "", "", "", "HAMIL", "MENYUSUI", "", "", "", "", "", "", "TOTAL", "", "TOTAL", ""],
+    ["", "", "BARU", "", "LAMA", "", "BARU", "", "LAMA", "", "", "", "", "", "", "", "", "", "", "", "LAHIR", "", "MENINGGAL", ""],
+    ["", "", "L", "P", "L", "P", "L", "P", "L", "P", "", "", "", "", "L", "P", "L", "P", "L", "P", "L", "P", "L", "P", ""],
     dataRow,
     ...Array.from({ length: 10 }, () => Array(25).fill("")),
     ["JUMLAH", "", ...dataRow.slice(2)],
@@ -49,7 +49,9 @@ function buildDataRow(report: MonthlyAttendanceReport, posyanduName: string) {
     info.totalWus, info.totalPus, info.totalPregnantWomen, info.totalBreastfeedingMothers,
     info.totalMaleCadres, info.totalFemaleCadres, info.totalMalePlkb, info.totalFemalePlkb,
     info.totalMaleMedicalStaff, info.totalFemaleMedicalStaff,
-    info.totalChildrenBorn, "", info.totalChildrenDied, "", ""];
+    info.totalMaleChildrenBorn, info.totalFemaleChildrenBorn,
+    info.totalMaleChildrenDied, info.totalFemaleChildrenDied,
+    ""];
 }
 
 function findRow(report: MonthlyAttendanceReport, ageGroup: "0-12-months" | "1-5-years", gender: "L" | "P") {
@@ -57,7 +59,7 @@ function findRow(report: MonthlyAttendanceReport, ageGroup: "0-12-months" | "1-5
 }
 
 function createMerges() {
-  return ["A1:Y1", "A2:Y2", "A3:Y3", "A4:Y4", "A5:Y5", "C6:N6", "O6:T7", "U6:X8", "A6:A11", "B6:B11", "Y6:Y11", "C7:J7", "K7:N7", "D8:E8", "H8:I8", "L8:N8", "O8:P10", "Q8:R10", "S8:T8", "D9:E9", "H9:I9", "S9:T9", "U9:V9", "W9:X9", "C10:D10", "E10:F10", "G10:H10", "I10:J10", "U10:V11", "W10:X11", "K8:K11", "L9:L11", "M9:M11", "N9:N11", "A23:B23"].map((range) => XLSX.utils.decode_range(range));
+  return ["A1:Y1", "A2:Y2", "A3:Y3", "A4:Y4", "A5:Y5", "C6:N6", "O6:T7", "U6:X8", "A6:A11", "B6:B11", "Y6:Y11", "C7:J7", "K7:N7", "C8:F8", "G8:J8", "M8:N8", "O8:P10", "Q8:R10", "S8:T10", "C9:F9", "G9:J9", "U9:V9", "W9:X9", "C10:D10", "E10:F10", "G10:H10", "I10:J10", "U10:V10", "W10:X10", "K8:K11", "L8:L11", "M9:M11", "N9:N11", "A23:B23"].map((range) => XLSX.utils.decode_range(range));
 }
 
 function applyStyles(worksheet: XLSX.WorkSheet) {

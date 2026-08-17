@@ -26,8 +26,10 @@ type AttendanceInformationRow = {
   total_wanita_plkb: number | null;
   total_pria_medis: number | null;
   total_wanita_medis: number | null;
-  total_balita_meninggal: number | null;
-  total_balita_lahir: number | null;
+  total_balita_pria_meninggal: number | null;
+  total_balita_wanita_meninggal: number | null;
+  total_balita_pria_lahir: number | null;
+  total_balita_wanita_lahir: number | null;
   id_petugas: string[] | null;
   created_by: string | null;
 };
@@ -42,8 +44,10 @@ export type MonthlyAttendanceInput = {
   total_wanita_plkb: number;
   total_pria_medis: number;
   total_wanita_medis: number;
-  total_balita_meninggal: number;
-  total_balita_lahir: number;
+  total_balita_pria_meninggal: number;
+  total_balita_wanita_meninggal: number;
+  total_balita_pria_lahir: number;
+  total_balita_wanita_lahir: number;
   id_petugas: string[];
 };
 
@@ -242,7 +246,7 @@ async function getMonthlyPosyanduInformation(
 ): Promise<{ information: MonthlyPosyanduInformation; savedReport: SavedMonthlyAttendanceReport | null }> {
   const { data, error } = await supabase
     .from("laporan_kehadiran_posyandu")
-    .select("id, periode, total_pus, total_wus, total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis, total_wanita_medis, total_balita_meninggal, total_balita_lahir, id_petugas, created_by")
+    .select("id, periode, total_pus, total_wus, total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis, total_wanita_medis, total_balita_pria_meninggal, total_balita_wanita_meninggal, total_balita_pria_lahir, total_balita_wanita_lahir, id_petugas, created_by")
     .eq("posyandu_id", posyanduId)
     .gte("periode", formatDateOnly(monthStart))
     .lt("periode", formatDateOnly(monthEnd))
@@ -287,8 +291,10 @@ async function getMonthlyPosyanduInformation(
     total_wanita_plkb: report.total_wanita_plkb ?? 0,
     total_pria_medis: report.total_pria_medis ?? 0,
     total_wanita_medis: report.total_wanita_medis ?? 0,
-    total_balita_meninggal: report.total_balita_meninggal ?? 0,
-    total_balita_lahir: report.total_balita_lahir ?? 0,
+    total_balita_pria_meninggal: report.total_balita_pria_meninggal ?? 0,
+    total_balita_wanita_meninggal: report.total_balita_wanita_meninggal ?? 0,
+    total_balita_pria_lahir: report.total_balita_pria_lahir ?? 0,
+    total_balita_wanita_lahir: report.total_balita_wanita_lahir ?? 0,
     id_petugas: reportOfficerIds,
     created_by: report.created_by,
     created_by_name: creatorName,
@@ -307,8 +313,12 @@ async function getMonthlyPosyanduInformation(
       totalFemalePlkb: savedReport.total_wanita_plkb,
       totalMaleMedicalStaff: savedReport.total_pria_medis,
       totalFemaleMedicalStaff: savedReport.total_wanita_medis,
-      totalChildrenBorn: savedReport.total_balita_lahir,
-      totalChildrenDied: savedReport.total_balita_meninggal,
+      totalMaleChildrenBorn: savedReport.total_balita_pria_lahir,
+      totalFemaleChildrenBorn: savedReport.total_balita_wanita_lahir,
+      totalChildrenBorn: savedReport.total_balita_pria_lahir + savedReport.total_balita_wanita_lahir,
+      totalMaleChildrenDied: savedReport.total_balita_pria_meninggal,
+      totalFemaleChildrenDied: savedReport.total_balita_wanita_meninggal,
+      totalChildrenDied: savedReport.total_balita_pria_meninggal + savedReport.total_balita_wanita_meninggal,
     },
   };
 }
@@ -342,7 +352,11 @@ function emptyInformation(): MonthlyPosyanduInformation {
     totalFemalePlkb: 0,
     totalMaleMedicalStaff: 0,
     totalFemaleMedicalStaff: 0,
+    totalMaleChildrenBorn: 0,
+    totalFemaleChildrenBorn: 0,
     totalChildrenBorn: 0,
+    totalMaleChildrenDied: 0,
+    totalFemaleChildrenDied: 0,
     totalChildrenDied: 0,
   };
 }
@@ -367,8 +381,10 @@ function toReportPayload(input: MonthlyAttendanceInput) {
     total_wanita_plkb: input.total_wanita_plkb,
     total_pria_medis: input.total_pria_medis,
     total_wanita_medis: input.total_wanita_medis,
-    total_balita_meninggal: input.total_balita_meninggal,
-    total_balita_lahir: input.total_balita_lahir,
+    total_balita_pria_meninggal: input.total_balita_pria_meninggal,
+    total_balita_wanita_meninggal: input.total_balita_wanita_meninggal,
+    total_balita_pria_lahir: input.total_balita_pria_lahir,
+    total_balita_wanita_lahir: input.total_balita_wanita_lahir,
   };
 }
 

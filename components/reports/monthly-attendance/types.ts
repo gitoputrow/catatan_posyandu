@@ -31,8 +31,10 @@ export type SavedMonthlyAttendanceReport = {
   total_wanita_plkb: number;
   total_pria_medis: number;
   total_wanita_medis: number;
-  total_balita_meninggal: number;
-  total_balita_lahir: number;
+  total_balita_pria_meninggal: number;
+  total_balita_wanita_meninggal: number;
+  total_balita_pria_lahir: number;
+  total_balita_wanita_lahir: number;
   id_petugas: string[];
   created_by: string | null;
   created_by_name?: string | null;
@@ -49,6 +51,10 @@ export type MonthlyPosyanduInformation = {
   totalFemalePlkb: number;
   totalMaleMedicalStaff: number;
   totalFemaleMedicalStaff: number;
+  totalMaleChildrenBorn: number;
+  totalFemaleChildrenBorn: number;
   totalChildrenBorn: number;
+  totalMaleChildrenDied: number;
+  totalFemaleChildrenDied: number;
   totalChildrenDied: number;
 };

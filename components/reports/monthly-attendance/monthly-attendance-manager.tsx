@@ -72,7 +72,7 @@ export function MonthlyAttendanceManager() {
   }
 
   return (
-    <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+    <main className="px-5 py-6 sm:py-8">
       <header className="flex flex-col gap-5">
         <div>
           <p className="text-sm font-semibold text-primary">LAPORAN POSYANDU</p>
@@ -115,29 +115,31 @@ export function MonthlyAttendanceManager() {
             variant="primary"
           />
           <InformationGroup
-            className="lg:col-span-5"
+            className="lg:col-span-4"
             description="Kader dan tenaga pendamping"
             icon={<OfficerIcon />}
             isLoading={isLoading}
             items={[
-              ["Kader Laki-laki", report?.information.totalMaleCadres ?? 0],
-              ["Kader Perempuan", report?.information.totalFemaleCadres ?? 0],
-              ["PLKB Laki-laki", report?.information.totalMalePlkb ?? 0],
-              ["PLKB Perempuan", report?.information.totalFemalePlkb ?? 0],
-              ["Medis Laki-laki", report?.information.totalMaleMedicalStaff ?? 0],
-              ["Medis Perempuan", report?.information.totalFemaleMedicalStaff ?? 0],
+              ["Kader Pria", report?.information.totalMaleCadres ?? 0],
+              ["Kader Wanita", report?.information.totalFemaleCadres ?? 0],
+              ["PLKB Pria", report?.information.totalMalePlkb ?? 0],
+              ["PLKB Wanita", report?.information.totalFemalePlkb ?? 0],
+              ["Medis Pria", report?.information.totalMaleMedicalStaff ?? 0],
+              ["Medis Wanita", report?.information.totalFemaleMedicalStaff ?? 0],
             ]}
             title="Petugas Pendukung"
             variant="secondary"
           />
           <InformationGroup
-            className="lg:col-span-3"
+            className="lg:col-span-4"
             description="Kelahiran dan kematian balita"
             icon={<ChildEventIcon />}
             isLoading={isLoading}
             items={[
-              ["Balita Lahir", report?.information.totalChildrenBorn ?? 0],
-              ["Balita Meninggal", report?.information.totalChildrenDied ?? 0],
+              ["Lahir Pria", report?.information.totalMaleChildrenBorn ?? 0],
+              ["Lahir Wanita", report?.information.totalFemaleChildrenBorn ?? 0],
+              ["Meninggal Pria", report?.information.totalMaleChildrenDied ?? 0],
+              ["Meninggal Wanita", report?.information.totalFemaleChildrenDied ?? 0],
             ]}
             title="Peristiwa Balita"
             variant="accent"

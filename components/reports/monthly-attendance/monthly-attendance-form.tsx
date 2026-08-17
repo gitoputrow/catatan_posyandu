@@ -24,8 +24,10 @@ const numberFields = [
   ["total_wanita_plkb", "PLKB Perempuan"],
   ["total_pria_medis", "Medis Laki-laki"],
   ["total_wanita_medis", "Medis Perempuan"],
-  ["total_balita_lahir", "Balita Lahir"],
-  ["total_balita_meninggal", "Balita Meninggal"],
+  ["total_balita_pria_lahir", "Balita Lahir Laki-laki"],
+  ["total_balita_wanita_lahir", "Balita Lahir Perempuan"],
+  ["total_balita_pria_meninggal", "Balita Meninggal Laki-laki"],
+  ["total_balita_wanita_meninggal", "Balita Meninggal Perempuan"],
 ] as const;
 
 type NumberField = typeof numberFields[number][0];

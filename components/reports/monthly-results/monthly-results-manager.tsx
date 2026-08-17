@@ -98,7 +98,7 @@ export function MonthlyResultsManager() {
 
   return (
     <>
-    <main className="px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+    <main className="px-5 py-6 sm:py-8 ">
       <header className="flex flex-col gap-5">
         <div>
           <p className="text-sm font-semibold text-primary">LAPORAN POSYANDU</p>
