@@ -7,14 +7,28 @@ type GrowthRecordCardProps = {
   onAdd: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onOpen?: () => void;
   readOnly?: boolean;
   record: GrowthRecordViewModel;
   referenceDate: Date;
 };
 
-export function GrowthRecordCard({ onAdd, onDelete, onEdit, readOnly = false, record, referenceDate }: GrowthRecordCardProps) {
+export function GrowthRecordCard({ onAdd, onDelete, onEdit, onOpen, readOnly = false, record, referenceDate }: GrowthRecordCardProps) {
+  const canOpen = Boolean(record.id && onOpen);
   return (
-    <article className="rounded-xl border border-border bg-surface p-4">
+    <article
+      className={`rounded-xl border border-border bg-surface p-4 ${canOpen ? "cursor-pointer transition hover:bg-primary/5" : ""}`}
+      onClick={canOpen ? onOpen : undefined}
+      onKeyDown={canOpen ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen?.();
+        }
+      } : undefined}
+      role={canOpen ? "button" : undefined}
+      tabIndex={canOpen ? 0 : undefined}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="break-words text-sm font-extrabold leading-snug text-text-primary">{record.nama}</h3>
@@ -32,13 +46,13 @@ export function GrowthRecordCard({ onAdd, onDelete, onEdit, readOnly = false, re
   );
 }
 
-export function GrowthRecordActions({ onAdd, onDelete, onEdit, readOnly = false, record }: Omit<GrowthRecordCardProps, "referenceDate">) {
+export function GrowthRecordActions({ onAdd, onDelete, onEdit, readOnly = false, record }: Omit<GrowthRecordCardProps, "onOpen" | "referenceDate">) {
   if (readOnly) return null;
   const hasMeasurement = [record.berat_badan, record.tinggi_badan, record.lingkar_kepala, record.lingkar_lengan].some((value) => value !== null);
   return <div className="flex shrink-0 justify-end gap-1">{hasMeasurement ? <>
-    <button aria-label={`Edit catatan ${record.nama}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={onEdit} type="button"><EditIcon /></button>
-    <button aria-label={`Hapus catatan ${record.nama}`} className="rounded-lg p-1.5 text-error transition hover:bg-error/10" onClick={onDelete} type="button"><TrashIcon /></button>
-  </> : <button aria-label={`Tambah catatan ${record.nama}`} className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={onAdd} type="button"><PlusIcon /></button>}</div>;
+    <button aria-label={`Edit catatan ${record.nama}`} className="cursor-pointer rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={(event) => { event.stopPropagation(); onEdit(); }} type="button"><EditIcon /></button>
+    <button aria-label={`Hapus catatan ${record.nama}`} className="cursor-pointer rounded-lg p-1.5 text-error transition hover:bg-error/10" onClick={(event) => { event.stopPropagation(); onDelete(); }} type="button"><TrashIcon /></button>
+  </> : <button aria-label={`Tambah catatan ${record.nama}`} className="cursor-pointer rounded-lg p-1.5 text-primary transition hover:bg-primary/10" onClick={(event) => { event.stopPropagation(); onAdd(); }} type="button"><PlusIcon /></button>}</div>;
 }
 
 function MetricCard({ change, label, unit, value }: { change?: number | null; label: string; unit: string; value: number | null }) {

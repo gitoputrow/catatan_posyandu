@@ -3,12 +3,19 @@ import "server-only";
 import type {
   GrowthRecordModel,
   GrowthRecordViewModel,
+  LastGrowthMeasurements,
 } from "@/components/growth-record/types";
 import { getOldestDisplayedBirthDate } from "@/lib/children/server";
 import { calculateGrowthTrends, getPeriodTimestamp, type GrowthTrendMeasurement, withGrowthTrendChanges } from "@/lib/growth-trend";
+import { databaseResult, deleteRow, insertRow, pgUuidArray, queryOne, queryRows, updateRow } from "@/lib/neon/query";
+import { redactGrowthRecordSensitiveData } from "@/lib/privacy-server";
 import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/user/server";
 
 const tableName = "tumbuh_kembang_balita";
+const growthRecordColumns = [
+  "balita_id", "posyandu_id", "periode_bulan", "tanggal_pengukuran", "berat_badan",
+  "tinggi_badan", "lingkar_kepala", "lingkar_lengan", "catatan", "created_by", "updated_at",
+] as const;
 
 export type GrowthRecordInput = Omit<
   GrowthRecordModel,
@@ -32,6 +39,7 @@ type ChildForGrowthRecord = {
 };
 
 type GrowthRecordRow = GrowthRecordModel & {
+  created_by_name: string | null;
   balita: {
     alamat: string | null;
     jenis_kelamin: "L" | "P";
@@ -44,47 +52,9 @@ type GrowthRecordRow = GrowthRecordModel & {
   };
 };
 
-const recordSelect = `
-  id,
-  balita_id,
-  posyandu_id,
-  periode_bulan,
-  tanggal_pengukuran,
-  berat_badan,
-  tinggi_badan,
-  lingkar_kepala,
-  lingkar_lengan,
-  catatan,
-  created_by,
-  created_at,
-  updated_at,
-  balita:balita_id!inner(
-    alamat,
-    jenis_kelamin,
-    nama_anak,
-    nama_ayah,
-    nama_ibu,
-    nik_anak,
-    nik_ortu,
-    tanggal_lahir
-  )
-`;
-
-const measurementSelect = `
-  id,
-  balita_id,
-  posyandu_id,
-  periode_bulan,
-  tanggal_pengukuran,
-  berat_badan,
-  tinggi_badan,
-  lingkar_kepala,
-  lingkar_lengan,
-  catatan,
-  created_by,
-  created_at,
-  updated_at
-`;
+type GrowthRecordWithCreator = GrowthRecordModel & {
+  created_by_name: string | null;
+};
 
 export async function listGrowthRecords(
   page: number,
@@ -93,43 +63,35 @@ export async function listGrowthRecords(
   year: number,
   search?: string,
 ) {
-  const from = (page - 1) * limit;
+  const offset = (page - 1) * limit;
   const periodStart = new Date(Date.UTC(year, month - 1, 1)).toISOString();
   const periodEnd = new Date(Date.UTC(year, month, 1)).toISOString();
   // Daftar balita kumulatif dari Januari hingga bulan yang dipilih.
   const registrationStart = new Date(Date.UTC(year, 0, 1)).toISOString();
   const oldestDisplayedBirthDate = getOldestDisplayedBirthDate(month, year);
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
-  const query = supabase
-    .from("balita")
-    .select(
-      "id, posyandu_id, alamat, jenis_kelamin, nama_anak, nama_ayah, nama_ibu, nik_anak, nik_ortu, tanggal_lahir",
-      { count: "exact" },
-    )
-    .eq("posyandu_id", posyanduId)
-    .gte("registered_at", registrationStart)
-    .lt("registered_at", periodEnd)
-    .or(`tanggal_lahir.is.null,tanggal_lahir.gte.${oldestDisplayedBirthDate}`);
+  const { posyanduId, role } = await getAuthenticatedPetugas();
   const normalizedSearch = search?.trim();
-  const safeSearch = normalizedSearch?.replace(/[%,_(),]/g, " ");
-  const filteredQuery = safeSearch
-    ? query.ilike("nama_anak", `%${safeSearch}%`)
-    : query;
-  const [childrenResult, recordedResult] = await Promise.all([
-    filteredQuery
-      .order("nama_anak", { ascending: true })
-      .range(from, from + limit - 1),
-    supabase
-      .from(tableName)
-      .select("balita_id, periode_bulan, berat_badan, tinggi_badan")
-      .eq("posyandu_id", posyanduId)
-      .gte("periode_bulan", periodStart)
-      .lt("periode_bulan", periodEnd)
-      .or("berat_badan.not.is.null,tinggi_badan.not.is.null,lingkar_kepala.not.is.null,lingkar_lengan.not.is.null")
-      .order("periode_bulan", { ascending: false }),
+  const searchValue = normalizedSearch ? `%${normalizedSearch}%` : null;
+  const childParams = [posyanduId, registrationStart, periodEnd, oldestDisplayedBirthDate, searchValue, periodStart.slice(0, 10)];
+  const childWhere = `posyandu_id = $1 and registered_at >= $2::timestamptz and registered_at < $3::timestamptz
+    and (tanggal_lahir is null or tanggal_lahir >= $4::date)
+    and ($5::text is null or nama_anak ilike $5)
+    and (inactive_at is null or inactive_at::date >= $6::date)`;
+  const [children, countRow, recordedRows] = await Promise.all([
+    queryRows<ChildForGrowthRecord>(`select id, posyandu_id, alamat, jenis_kelamin, nama_anak, nama_ayah, nama_ibu,
+      nik_anak, nik_ortu, tanggal_lahir from balita where ${childWhere}
+      order by nama_anak limit $7 offset $8`, [...childParams, limit, offset]),
+    queryOne<{ count: number }>(`select count(*)::int as count from balita where ${childWhere}`, childParams),
+    queryRows<GrowthTrendMeasurement>(`select balita_id, periode_bulan::text as periode_bulan,
+      berat_badan::float8 as berat_badan, tinggi_badan::float8 as tinggi_badan,
+      lingkar_kepala::float8 as lingkar_kepala, lingkar_lengan::float8 as lingkar_lengan
+      from tumbuh_kembang_balita where posyandu_id = $1
+      and periode_bulan >= $2::date and periode_bulan < $3::date
+      and (berat_badan is not null or tinggi_badan is not null or lingkar_kepala is not null or lingkar_lengan is not null)
+      order by periode_bulan desc`, [posyanduId, periodStart, periodEnd]),
   ]);
-  const { data: children, error, count } = childrenResult;
-  const recordedCount = new Set((recordedResult.data ?? []).map((record) => record.balita_id)).size;
+  const count = countRow?.count ?? 0;
+  const recordedCount = new Set(recordedRows.map((record) => record.balita_id)).size;
   const emptyGrowthTrends = {
     weightUp: 0,
     weightDown: 0,
@@ -139,10 +101,10 @@ export async function listGrowthRecords(
     heightUpChange: 0,
   };
 
-  if (error || recordedResult.error || !children?.length) {
+  if (!children.length) {
     return {
       data: [],
-      error: error ?? recordedResult.error,
+      error: null,
       count,
       recordedCount,
       growthTrends: emptyGrowthTrends,
@@ -150,67 +112,65 @@ export async function listGrowthRecords(
   }
 
   const childIds = children.map((child) => child.id);
-  const recordedChildIds = [...new Set((recordedResult.data ?? []).map((record) => record.balita_id))];
+  const recordedChildIds = [...new Set(recordedRows.map((record) => record.balita_id))];
   const historyStart = new Date(Date.UTC(year - 1, month - 1, 1)).toISOString();
   const previousMonthStart = new Date(Date.UTC(year, month - 2, 1)).toISOString();
-  const [measurementsResult, previousMeasurementsResult] = await Promise.all([
-    supabase
-      .from(tableName)
-      .select(measurementSelect)
-      .in("balita_id", childIds)
-      .order("periode_bulan", { ascending: false }),
+  const [measurements, previousMeasurements] = await Promise.all([
+    queryRows<GrowthRecordWithCreator>(`select r.id, r.balita_id, r.posyandu_id,
+      r.periode_bulan::text as periode_bulan, r.tanggal_pengukuran::text as tanggal_pengukuran,
+      r.berat_badan::float8 as berat_badan, r.tinggi_badan::float8 as tinggi_badan,
+      r.lingkar_kepala::float8 as lingkar_kepala, r.lingkar_lengan::float8 as lingkar_lengan,
+      r.catatan, r.created_by, p.nama as created_by_name, r.created_at, r.updated_at
+      from tumbuh_kembang_balita r
+      left join petugas p on p.id = r.created_by and p.posyandu_id = r.posyandu_id
+      where r.posyandu_id = $1 and r.balita_id = any($2::uuid[]) order by r.periode_bulan desc`, [posyanduId, pgUuidArray(childIds)]),
     recordedChildIds.length > 0
-      ? supabase
-          .from(tableName)
-          .select("balita_id, periode_bulan, berat_badan, tinggi_badan, lingkar_kepala, lingkar_lengan")
-          .eq("posyandu_id", posyanduId)
-          .in("balita_id", recordedChildIds)
-          .gte("periode_bulan", historyStart)
-          .lt("periode_bulan", periodStart)
-          .order("periode_bulan", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
+      ? queryRows<GrowthTrendMeasurement>(`select balita_id, periode_bulan::text as periode_bulan,
+          berat_badan::float8 as berat_badan, tinggi_badan::float8 as tinggi_badan,
+          lingkar_kepala::float8 as lingkar_kepala, lingkar_lengan::float8 as lingkar_lengan
+          from tumbuh_kembang_balita where posyandu_id = $1 and balita_id = any($2::uuid[])
+          and periode_bulan >= $3::date and periode_bulan < $4::date order by periode_bulan desc`,
+          [posyanduId, pgUuidArray(recordedChildIds), historyStart, periodStart])
+      : Promise.resolve([] as GrowthTrendMeasurement[]),
   ]);
-  const { data: measurements, error: measurementError } = measurementsResult;
 
-  if (measurementError || previousMeasurementsResult.error) {
-    return {
-      data: [],
-      error: measurementError ?? previousMeasurementsResult.error,
-      count,
-      recordedCount,
-      growthTrends: emptyGrowthTrends,
-    };
-  }
-
-  const measurementByChild = new Map<string, GrowthRecordModel>();
-  for (const measurement of (measurements ?? []) as GrowthRecordModel[]) {
+  const measurementByChild = new Map<string, GrowthRecordWithCreator>();
+  for (const measurement of measurements) {
     if (!isSamePeriod(measurement.periode_bulan, month, year)) continue;
     if (!measurementByChild.has(measurement.balita_id)) {
       measurementByChild.set(measurement.balita_id, measurement);
     }
   }
   const previousMetricsByChild = getPreviousMetricsByChild(
-    ((previousMeasurementsResult.data ?? []) as GrowthTrendMeasurement[]).filter((measurement) => {
+    measurements.filter((measurement) => {
       const timestamp = getPeriodTimestamp(measurement.periode_bulan) ?? -1;
-      return timestamp >= (getPeriodTimestamp(previousMonthStart) ?? 0);
+      return timestamp >= (getPeriodTimestamp(previousMonthStart) ?? 0)
+        && timestamp < (getPeriodTimestamp(periodStart) ?? 0);
     }),
+  );
+  const lastMetricsByChild = getLastMetricsByChild(
+    measurements.filter(
+      (measurement) => (getPeriodTimestamp(measurement.periode_bulan) ?? -1)
+        < (getPeriodTimestamp(periodStart) ?? 0),
+    ),
   );
 
   return {
-    data: (children as ChildForGrowthRecord[]).map((child) =>
-      toListViewModel(
+    data: children.map((child) =>
+      redactGrowthRecordSensitiveData(toListViewModel(
         child,
         measurementByChild.get(child.id),
         periodStart,
         previousMetricsByChild.get(child.id),
-      ),
+        lastMetricsByChild.get(child.id),
+      ), role),
     ),
     error: null,
     count,
     recordedCount,
     growthTrends: calculatePeriodGrowthTrends(
-      (recordedResult.data ?? []) as GrowthTrendMeasurement[],
-      (previousMeasurementsResult.data ?? []) as GrowthTrendMeasurement[],
+      recordedRows,
+      previousMeasurements,
       previousMonthStart,
       periodStart,
     ),
@@ -238,6 +198,50 @@ function getPreviousMetricsByChild(measurements: GrowthTrendMeasurement[]) {
   return metrics;
 }
 
+function getLastMetricsByChild(measurements: GrowthTrendMeasurement[]) {
+  const metrics = new Map<string, LastGrowthMeasurements>();
+
+  for (const measurement of measurements) {
+    const current = metrics.get(measurement.balita_id) ?? createEmptyLastMeasurements();
+    if (current.berat_badan === null && measurement.berat_badan !== null) {
+      current.berat_badan = {
+        value: Number(measurement.berat_badan),
+        periode_bulan: measurement.periode_bulan,
+      };
+    }
+    if (current.tinggi_badan === null && measurement.tinggi_badan !== null) {
+      current.tinggi_badan = {
+        value: Number(measurement.tinggi_badan),
+        periode_bulan: measurement.periode_bulan,
+      };
+    }
+    if (current.lingkar_kepala === null && measurement.lingkar_kepala !== null) {
+      current.lingkar_kepala = {
+        value: Number(measurement.lingkar_kepala),
+        periode_bulan: measurement.periode_bulan,
+      };
+    }
+    if (current.lingkar_lengan === null && measurement.lingkar_lengan !== null) {
+      current.lingkar_lengan = {
+        value: Number(measurement.lingkar_lengan),
+        periode_bulan: measurement.periode_bulan,
+      };
+    }
+    metrics.set(measurement.balita_id, current);
+  }
+
+  return metrics;
+}
+
+function createEmptyLastMeasurements(): LastGrowthMeasurements {
+  return {
+    berat_badan: null,
+    tinggi_badan: null,
+    lingkar_kepala: null,
+    lingkar_lengan: null,
+  };
+}
+
 function calculatePeriodGrowthTrends(
   currentMeasurements: GrowthTrendMeasurement[],
   history: GrowthTrendMeasurement[],
@@ -262,63 +266,50 @@ function calculatePeriodGrowthTrends(
 }
 
 export async function findGrowthRecordById(id: string) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
-  const { data, error } = await supabase
-    .from(tableName)
-    .select(recordSelect)
-    .eq("id", id)
-    .eq("posyandu_id", posyanduId)
-    .single();
-
-  return { data: data ? toViewModel(data as unknown as GrowthRecordRow) : null, error };
+  const { posyanduId, role } = await getAuthenticatedPetugas();
+  const data = await queryOne<GrowthRecordRow>(`select r.id, r.balita_id, r.posyandu_id,
+    r.periode_bulan::text as periode_bulan, r.tanggal_pengukuran::text as tanggal_pengukuran,
+    r.berat_badan::float8 as berat_badan, r.tinggi_badan::float8 as tinggi_badan,
+    r.lingkar_kepala::float8 as lingkar_kepala, r.lingkar_lengan::float8 as lingkar_lengan,
+    r.catatan, r.created_by, p.nama as created_by_name, r.created_at, r.updated_at,
+    json_build_object('alamat', b.alamat, 'jenis_kelamin', b.jenis_kelamin, 'nama_anak', b.nama_anak,
+      'nama_ayah', b.nama_ayah, 'nama_ibu', b.nama_ibu, 'nik_anak', b.nik_anak,
+      'nik_ortu', b.nik_ortu, 'tanggal_lahir', b.tanggal_lahir) as balita
+    from tumbuh_kembang_balita r
+    join balita b on b.id = r.balita_id
+    left join petugas p on p.id = r.created_by and p.posyandu_id = r.posyandu_id
+    where r.id = $1 and r.posyandu_id = $2`, [id, posyanduId]);
+  return databaseResult(data ? redactGrowthRecordSensitiveData(toViewModel(data), role) : null);
 }
 
 export async function createGrowthRecord(record: GrowthRecordInput) {
-  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
-  const { data: child, error: childError } = await supabase
-    .from("balita")
-    .select("id")
-    .eq("id", record.balita_id)
-    .eq("posyandu_id", posyanduId)
-    .single();
-
-  if (childError) throw childError;
+  const { petugasId, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const child = await queryOne<{ id: string }>(`select id from balita
+    where id = $1 and posyandu_id = $2
+    and (inactive_at is null or inactive_at::date >= $3::date)`,
+    [record.balita_id, posyanduId, record.periode_bulan.slice(0, 10)]);
   if (!child) throw new Error("Data balita tidak ditemukan.");
-
-  return supabase
-    .from(tableName)
-    .insert({ ...record, posyandu_id: posyanduId, created_by: petugasId })
-    .select(measurementSelect)
-    .single();
+  const data = await insertRow<GrowthRecordModel>(tableName, { ...record, posyandu_id: posyanduId, created_by: petugasId }, growthRecordColumns);
+  return databaseResult(data);
 }
 
 export async function updateGrowthRecordById(id: string, record: GrowthRecordUpdateInput) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
-  return supabase
-    .from(tableName)
-    .update({ ...record, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("posyandu_id", posyanduId)
-    .select(measurementSelect)
-    .single();
+  const { posyanduId } = await getAuthenticatedPetugasForWrite();
+  const data = await updateRow<GrowthRecordModel>(tableName, { ...record, updated_at: new Date().toISOString() }, growthRecordColumns, { id, posyandu_id: posyanduId });
+  return databaseResult(data);
 }
 
 export async function deleteGrowthRecordById(id: string) {
-  const { supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
-  return supabase
-    .from(tableName)
-    .delete()
-    .eq("id", id)
-    .eq("posyandu_id", posyanduId)
-    .select("id")
-    .maybeSingle();
+  const { posyanduId } = await getAuthenticatedPetugasForWrite();
+  return databaseResult(await deleteRow<{ id: string }>(tableName, { id, posyandu_id: posyanduId }));
 }
 
 function toListViewModel(
   child: ChildForGrowthRecord,
-  measurement: GrowthRecordModel | undefined,
+  measurement: GrowthRecordWithCreator | undefined,
   periodStart: string,
   previousMetrics?: { weight: number | null; height: number | null; head: number | null; arm: number | null },
+  lastMetrics?: LastGrowthMeasurements,
 ): GrowthRecordViewModel {
   return {
     id: measurement?.id ?? null,
@@ -342,8 +333,10 @@ function toListViewModel(
     lingkar_lengan: measurement?.lingkar_lengan ?? null,
     perubahan_lingkar_kepala: calculateMetricChange(measurement?.lingkar_kepala, previousMetrics?.head),
     perubahan_lingkar_lengan: calculateMetricChange(measurement?.lingkar_lengan, previousMetrics?.arm),
+    pengukuran_terakhir: lastMetrics ?? createEmptyLastMeasurements(),
     catatan: measurement?.catatan ?? null,
     created_by: measurement?.created_by ?? null,
+    created_by_name: measurement?.created_by_name ?? null,
     created_at: measurement?.created_at ?? null,
     updated_at: measurement?.updated_at ?? null,
   };
@@ -372,8 +365,10 @@ function toViewModel(record: GrowthRecordRow): GrowthRecordViewModel {
     lingkar_lengan: record.lingkar_lengan,
     perubahan_lingkar_kepala: null,
     perubahan_lingkar_lengan: null,
+    pengukuran_terakhir: createEmptyLastMeasurements(),
     catatan: record.catatan,
     created_by: record.created_by,
+    created_by_name: record.created_by_name,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };

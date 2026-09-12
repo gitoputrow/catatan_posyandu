@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { badRequest, forbidden, notFound, withApiErrorHandling } from "@/app/api/_shared/response";
 import { isSameOriginRequest } from "@/lib/auth/csrf";
+import { getGrowthMetricValidationError, isValidGrowthMetric } from "@/lib/growth-record/validation";
 import {
   deleteGrowthRecordById,
   findGrowthRecordById,
@@ -25,14 +26,12 @@ function isGrowthRecordUpdateInput(value: unknown): value is GrowthRecordUpdateI
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<GrowthRecordUpdateInput> & Record<string, unknown>;
   const forbiddenFields = ["id", "balita_id", "posyandu_id", "periode_bulan", "created_by", "created_at", "updated_at"];
-  const validMetric = (metric: unknown) => metric === undefined || metric === null || (typeof metric === "number" && Number.isFinite(metric));
-
   return (
     forbiddenFields.every((field) => !(field in record)) &&
-    validMetric(record.berat_badan) &&
-    validMetric(record.tinggi_badan) &&
-    validMetric(record.lingkar_kepala) &&
-    validMetric(record.lingkar_lengan) &&
+    isValidGrowthMetric(record.berat_badan, true) &&
+    isValidGrowthMetric(record.tinggi_badan, true) &&
+    isValidGrowthMetric(record.lingkar_kepala, true) &&
+    isValidGrowthMetric(record.lingkar_lengan, true) &&
     (record.tanggal_pengukuran === undefined || record.tanggal_pengukuran === null || typeof record.tanggal_pengukuran === "string") &&
     (record.catatan === undefined || record.catatan === null || typeof record.catatan === "string")
   );
@@ -48,6 +47,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       payload = await request.json();
     } catch {
       return badRequest("Payload catatan pertumbuhan tidak valid.");
+    }
+
+    if (payload && typeof payload === "object") {
+      const metricError = getGrowthMetricValidationError(payload);
+      if (metricError) return badRequest(metricError);
     }
 
     if (!isGrowthRecordUpdateInput(payload)) {

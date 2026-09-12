@@ -6,13 +6,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ChildForm } from "@/components/children/child-form";
 import { ChildCard } from "@/components/children/child-card";
 import { ChildRow } from "@/components/children/child-row";
+import { ChildStatusDialog } from "@/components/children/child-status-dialog";
 import type { Child } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
 import { useCurrentUser } from "@/components/user/user-provider";
 import {
+  deactivateChild,
   getAllChildren,
   getChildren,
+  reactivateChild,
   removeChild,
   updateChild,
 } from "@/lib/children/api";
@@ -31,6 +34,7 @@ export function ChildrenManager() {
   const searchParams = useSearchParams();
   const [children, setChildren] = useState<Child[]>([]);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [statusChild, setStatusChild] = useState<Child | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("q") ?? "");
@@ -178,11 +182,23 @@ export function ChildrenManager() {
   async function saveChild(child: Child) {
     const payload = Object.fromEntries(
       Object.entries(child).filter(
-        ([key]) => !["id", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key),
+        ([key]) => !["id", "inactive_at", "inactive_reason", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key),
       ),
-    ) as Omit<Child, "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
+    ) as Omit<Child, "id" | "inactive_at" | "inactive_reason" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
     await updateChild(child.id, payload);
     setIsFormOpen(false);
+    setReloadKey((value) => value + 1);
+  }
+
+  async function deactivateSelectedChild(inactiveAt: string, inactiveReason: string) {
+    if (!statusChild) return;
+    await deactivateChild(statusChild.id, inactiveAt, inactiveReason);
+    setReloadKey((value) => value + 1);
+  }
+
+  async function reactivateSelectedChild() {
+    if (!statusChild) return;
+    await reactivateChild(statusChild.id);
     setReloadKey((value) => value + 1);
   }
 
@@ -219,7 +235,7 @@ export function ChildrenManager() {
                 {total} balita terdaftar
               </p>
             </div>
-            <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-[8rem_7rem]">
+            <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-[9rem_7rem]">
               <SearchableSelect ariaLabel="Pilih bulan periode data" className="w-full" onValueChange={(value) => changePeriod(Number(value), year)} options={monthOptions} value={month} />
               <SearchableSelect ariaLabel="Pilih tahun periode data" className="w-full" onValueChange={(value) => changePeriod(month, Number(value))} options={yearOptions} value={year} />
             </div>
@@ -248,6 +264,7 @@ export function ChildrenManager() {
               onDelete={deleteChild}
               onEdit={openEditForm}
               onOpen={() => router.push(`/children/${child.id}`)}
+              onToggleStatus={setStatusChild}
               readOnly={!canManage}
               referenceDate={referenceDate}
               showSensitiveData={canManage}
@@ -274,6 +291,7 @@ export function ChildrenManager() {
                   key={child.id}
                   onDelete={deleteChild}
                   onEdit={openEditForm}
+                  onToggleStatus={setStatusChild}
                   readOnly={!canManage}
                   referenceDate={referenceDate}
                   showSensitiveData={canManage}
@@ -324,6 +342,14 @@ export function ChildrenManager() {
           child={editingChild}
           onClose={() => setIsFormOpen(false)}
           onSave={saveChild}
+        />
+      )}
+      {canManage && statusChild && (
+        <ChildStatusDialog
+          child={statusChild}
+          onClose={() => setStatusChild(null)}
+          onDeactivate={deactivateSelectedChild}
+          onReactivate={reactivateSelectedChild}
         />
       )}
     </main>

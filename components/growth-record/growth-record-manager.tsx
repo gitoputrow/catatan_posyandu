@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
 import { GrowthTrendSummary, type GrowthTrendData } from "@/components/dashboard/growth-trend-summary";
 import { GrowthRecordActions, GrowthRecordCard } from "@/components/growth-record/growth-record-card";
+import { GrowthRecordDetailDialog } from "@/components/growth-record/growth-record-detail-dialog";
+import { LastMeasurementHint } from "@/components/growth-record/last-measurement-hint";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/form";
 import { MetricChange } from "@/components/ui/metric-change";
@@ -18,6 +20,7 @@ import {
   updateGrowthRecord,
 } from "@/lib/growth-record/api";
 import { exportGrowthRecordsToExcel } from "@/lib/growth-record/export";
+import { getGrowthMetricValidationError, MAX_GROWTH_METRIC_VALUE } from "@/lib/growth-record/validation";
 import { getUser } from "@/lib/user/api";
 
 const pageSize = 10;
@@ -67,8 +70,15 @@ export function GrowthRecordManager() {
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
   const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get("q") ?? "");
   const [editingRecord, setEditingRecord] = useState<GrowthRecordViewModel | null>(null);
+  const [detailRecord, setDetailRecord] = useState<GrowthRecordViewModel | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const previousSearchRef = useRef(debouncedQuery);
+  const recordFormHistoryRef = useRef(false);
+  const isClosingRecordFormRef = useRef(false);
+  const recordDetailHistoryRef = useRef(false);
+  const isClosingRecordDetailRef = useRef(false);
+  const recordFormId = searchParams.get("record_form");
+  const recordDetailId = searchParams.get("record_detail");
   const monthOptions = monthNames.map((name, index) => ({ label: name, value: String(index + 1) }));
   const yearOptions = Array.from(
     { length: 6 },
@@ -119,6 +129,40 @@ export function GrowthRecordManager() {
     router.replace(`/growth-recording?${params}`);
   }, [debouncedQuery, router, searchParams]);
 
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!recordFormId) {
+        setEditingRecord(null);
+        recordFormHistoryRef.current = false;
+        isClosingRecordFormRef.current = false;
+        return;
+      }
+
+      if (isClosingRecordFormRef.current || !canManage) return;
+      const matchingRecord = records.find((record) => record.balita_id === recordFormId);
+      if (matchingRecord) setEditingRecord(matchingRecord);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [canManage, recordFormId, records]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      if (!recordDetailId) {
+        setDetailRecord(null);
+        recordDetailHistoryRef.current = false;
+        isClosingRecordDetailRef.current = false;
+        return;
+      }
+
+      if (isClosingRecordDetailRef.current) return;
+      const matchingRecord = records.find((record) => record.id === recordDetailId);
+      if (matchingRecord) setDetailRecord(matchingRecord);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [recordDetailId, records]);
+
   function changePage(nextPage: number) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(nextPage));
@@ -143,11 +187,75 @@ export function GrowthRecordManager() {
 
   function openRecordForm(record: GrowthRecordViewModel) {
     setEditingRecord(record);
+    setDetailRecord(null);
     setError(null);
+    recordFormHistoryRef.current = true;
+    isClosingRecordFormRef.current = false;
+    recordDetailHistoryRef.current = false;
+    isClosingRecordDetailRef.current = false;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("record_detail");
+    params.set("record_form", record.balita_id);
+    router.push(`/growth-recording?${params}`, { scroll: false });
+  }
+
+  function openRecordDetail(record: GrowthRecordViewModel) {
+    if (!record.id) return;
+
+    setDetailRecord(record);
+    setEditingRecord(null);
+    setError(null);
+    recordDetailHistoryRef.current = true;
+    isClosingRecordDetailRef.current = false;
+    recordFormHistoryRef.current = false;
+    isClosingRecordFormRef.current = false;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("record_form");
+    params.set("record_detail", record.id);
+    router.push(`/growth-recording?${params}`, { scroll: false });
+  }
+
+  function closeRecordForm() {
+    setEditingRecord(null);
+    setError(null);
+    isClosingRecordFormRef.current = true;
+
+    if (recordFormHistoryRef.current && recordFormId) {
+      recordFormHistoryRef.current = false;
+      router.back();
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("record_form");
+    const queryString = params.toString();
+    router.replace(`/growth-recording${queryString ? `?${queryString}` : ""}`, { scroll: false });
+  }
+
+  function closeRecordDetail() {
+    setDetailRecord(null);
+    isClosingRecordDetailRef.current = true;
+
+    if (recordDetailHistoryRef.current && recordDetailId) {
+      recordDetailHistoryRef.current = false;
+      router.back();
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("record_detail");
+    const queryString = params.toString();
+    router.replace(`/growth-recording${queryString ? `?${queryString}` : ""}`, { scroll: false });
   }
 
   async function saveGrowthRecord(values: GrowthRecordFormValues) {
     if (!editingRecord) return;
+
+    const validationError = getGrowthMetricValidationError(values);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setIsSavingRecord(true);
     setError(null);
@@ -161,7 +269,7 @@ export function GrowthRecordManager() {
           periode_bulan: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
         });
       }
-      setEditingRecord(null);
+      closeRecordForm();
       setReloadKey((value) => value + 1);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Catatan pertumbuhan gagal disimpan.");
@@ -274,6 +382,7 @@ export function GrowthRecordManager() {
               onAdd={() => openRecordForm(record)}
               onDelete={() => void deleteGrowthRecord(record)}
               onEdit={() => openRecordForm(record)}
+              onOpen={record.id ? () => openRecordDetail(record) : undefined}
               readOnly={!canManage}
               record={record}
               referenceDate={new Date(year, month, 0)}
@@ -311,6 +420,7 @@ export function GrowthRecordManager() {
                   onAdd={() => openRecordForm(record)}
                   onDelete={() => void deleteGrowthRecord(record)}
                   onEdit={() => openRecordForm(record)}
+                  onOpen={record.id ? () => openRecordDetail(record) : undefined}
                   readOnly={!canManage}
                   record={record}
                   referenceDate={new Date(year, month, 0)}
@@ -358,12 +468,14 @@ export function GrowthRecordManager() {
       </section>
       {canManage && editingRecord && (
         <GrowthRecordEditor
+          error={error}
           isSaving={isSavingRecord}
-          onClose={() => setEditingRecord(null)}
+          onClose={closeRecordForm}
           onSave={saveGrowthRecord}
           record={editingRecord}
         />
       )}
+      <GrowthRecordDetailDialog onClose={closeRecordDetail} record={detailRecord} />
     </main>
   );
 }
@@ -381,6 +493,7 @@ function GrowthRecordRow({
   onAdd,
   onDelete,
   onEdit,
+  onOpen,
   readOnly,
   record,
   referenceDate,
@@ -388,12 +501,24 @@ function GrowthRecordRow({
   onAdd: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onOpen?: () => void;
   readOnly: boolean;
   record: GrowthRecordViewModel;
   referenceDate: Date;
 }) {
   return (
-    <tr className="text-sm text-text-primary">
+    <tr
+      className={`text-sm text-text-primary ${onOpen ? "cursor-pointer transition-colors hover:bg-primary/5" : ""}`}
+      onClick={onOpen}
+      onKeyDown={onOpen ? (event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      } : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+    >
       <td className="px-3 py-3 font-bold">{record.nama}</td>
       <td className="px-3 py-3 text-xs">
         {record.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"}
@@ -414,11 +539,13 @@ function GrowthRecordRow({
 
 
 function GrowthRecordEditor({
+  error,
   isSaving,
   onClose,
   onSave,
   record,
 }: {
+  error: string | null;
   isSaving: boolean;
   onClose: () => void;
   onSave: (values: GrowthRecordFormValues) => Promise<void>;
@@ -432,6 +559,18 @@ function GrowthRecordEditor({
     lingkar_lengan: valueToInput(record.lingkar_lengan),
     catatan: record.catatan ?? "",
   });
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+    };
+  }, []);
 
   function updateField(name: string, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -450,9 +589,9 @@ function GrowthRecordEditor({
   }
 
   return (
-    <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-text-primary/45 p-4" role="dialog">
-      <form className="w-full max-w-2xl overflow-hidden rounded-2xl bg-surface shadow-lg" onSubmit={handleSubmit}>
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+    <div aria-modal="true" className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-text-primary/45 p-3 sm:p-4" role="dialog">
+      <form className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface shadow-lg sm:max-h-[calc(100dvh-2rem)]" onSubmit={handleSubmit}>
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6 sm:py-5">
           <div>
             <p className="text-sm font-semibold text-primary">PENCATATAN PERTUMBUHAN</p>
             <h2 className="text-xl font-extrabold text-text-primary">
@@ -462,18 +601,27 @@ function GrowthRecordEditor({
           </div>
           <button aria-label="Tutup form" className="grid size-9 cursor-pointer place-items-center rounded-lg text-text-secondary hover:bg-background" onClick={onClose} type="button">×</button>
         </div>
-        <div className="grid gap-5 p-6 sm:grid-cols-2">
+        {error && <p className="px-6 pt-4 text-sm font-medium text-error">{error}</p>}
+        <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto overscroll-contain p-5 sm:grid-cols-2 sm:p-6">
           <InputField label="Tanggal pengukuran" name="tanggal_pengukuran" onChange={updateField} type="date" value={form.tanggal_pengukuran} />
-          <InputField label="Berat badan (kg)" name="berat_badan" onChange={updateField} step="0.01" type="number" value={form.berat_badan} />
-          <InputField label="Tinggi badan (cm)" name="tinggi_badan" onChange={updateField} step="0.1" type="number" value={form.tinggi_badan} />
-          <InputField label="Lingkar kepala (cm)" name="lingkar_kepala" onChange={updateField} step="0.1" type="number" value={form.lingkar_kepala} />
-          <InputField label="Lingkar lengan (cm)" name="lingkar_lengan" onChange={updateField} step="0.1" type="number" value={form.lingkar_lengan} />
+          <InputField label="Berat badan (kg)" name="berat_badan" onChange={updateField} step="0.01" type="number" value={form.berat_badan}>
+            {!record.id && <LastMeasurementHint label="Berat terakhir" measurement={record.pengukuran_terakhir.berat_badan} unit="kg" />}
+          </InputField>
+          <InputField label="Tinggi badan (cm)" name="tinggi_badan" onChange={updateField} step="0.1" type="number" value={form.tinggi_badan}>
+            {!record.id && <LastMeasurementHint label="Tinggi terakhir" measurement={record.pengukuran_terakhir.tinggi_badan} unit="cm" />}
+          </InputField>
+          <InputField label="Lingkar kepala (cm)" name="lingkar_kepala" onChange={updateField} step="0.1" type="number" value={form.lingkar_kepala}>
+            {!record.id && <LastMeasurementHint label="Lingkar kepala terakhir" measurement={record.pengukuran_terakhir.lingkar_kepala} unit="cm" />}
+          </InputField>
+          <InputField label="Lingkar lengan (cm)" name="lingkar_lengan" onChange={updateField} step="0.1" type="number" value={form.lingkar_lengan}>
+            {!record.id && <LastMeasurementHint label="Lingkar lengan terakhir" measurement={record.pengukuran_terakhir.lingkar_lengan} unit="cm" />}
+          </InputField>
           <label className="block text-sm font-semibold text-text-primary sm:col-span-2">
             Catatan
             <textarea className="mt-2 min-h-24 w-full rounded-lg border border-border bg-surface px-3 py-2 font-normal text-text-primary outline-none focus:border-primary focus:ring-4 focus:ring-primary/10" onChange={(event) => updateField("catatan", event.target.value)} value={form.catatan} />
           </label>
         </div>
-        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
+        <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-surface px-5 py-4 sm:flex sm:justify-end sm:px-6">
           <Button onClick={onClose} type="button" variant="outline">Batal</Button>
           <Button isLoading={isSaving} type="submit">{record.id ? "Simpan Perubahan" : "Tambah Catatan"}</Button>
         </div>
@@ -483,6 +631,7 @@ function GrowthRecordEditor({
 }
 
 function InputField({
+  children,
   label,
   name,
   onChange,
@@ -490,6 +639,7 @@ function InputField({
   type,
   value,
 }: {
+  children?: React.ReactNode;
   label: string;
   name: string;
   onChange: (name: string, value: string) => void;
@@ -502,6 +652,7 @@ function InputField({
       {label}
       <input
         className="mt-2 h-11 w-full rounded-lg border border-border bg-surface px-3 font-normal text-text-primary outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+        max={type === "number" ? MAX_GROWTH_METRIC_VALUE : undefined}
         min={type === "number" ? "0" : undefined}
         name={name}
         onChange={(event) => onChange(name, event.target.value)}
@@ -509,6 +660,7 @@ function InputField({
         type={type}
         value={value}
       />
+      {children}
     </label>
   );
 }

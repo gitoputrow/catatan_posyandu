@@ -5,12 +5,13 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Child, Kelurahan, Posyandu } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
 import { BackLink } from "@/components/ui/back-link";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Form, FormField, FormSelect } from "@/components/ui/form";
 import { getKelurahan, getPosyandu } from "@/lib/children/api";
 
 type ChildFormData = Omit<
   Child,
-  "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
+  "id" | "inactive_at" | "inactive_reason" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
 >;
 
 const emptyChild: ChildFormData = {
@@ -50,6 +51,8 @@ export function ChildForm({
 }) {
   const [formData, setFormData] = useState(() => normalizeFormData(child));
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [pendingChild, setPendingChild] = useState<Child | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [kelurahan, setKelurahan] = useState<Kelurahan[]>([]);
   const [posyandu, setPosyandu] = useState<Posyandu[]>([]);
@@ -110,19 +113,41 @@ export function ChildForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsSaving(true);
+    const validationMessage = getRequiredFieldError(formData);
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
     setError(null);
     const now = new Date().toISOString();
+    const submittedChild: Child = {
+      ...formData,
+      id: child?.id ?? crypto.randomUUID(),
+      inactive_at: child?.inactive_at ?? null,
+      inactive_reason: child?.inactive_reason ?? null,
+      created_by: child?.created_by ?? null,
+      created_by_name: child?.created_by_name ?? null,
+      created_at: child?.created_at ?? now,
+      registered_at: child?.registered_at ?? now,
+      updated_at: now,
+    };
+
+    if (!isEditing) {
+      setPendingChild(submittedChild);
+      setIsConfirmOpen(true);
+      return;
+    }
+
+    await persistChild(submittedChild);
+  }
+
+  async function persistChild(submittedChild: Child) {
+    setIsSaving(true);
+    setError(null);
     try {
-      await onSave({
-        ...formData,
-        id: child?.id ?? crypto.randomUUID(),
-        created_by: child?.created_by ?? null,
-        created_by_name: child?.created_by_name ?? null,
-        created_at: child?.created_at ?? now,
-        registered_at: child?.registered_at ?? now,
-        updated_at: now,
-      });
+      await onSave(submittedChild);
+      setIsConfirmOpen(false);
+      setPendingChild(null);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Data balita gagal disimpan.");
     } finally {
@@ -170,6 +195,7 @@ export function ChildForm({
             label="Nama anak"
             name="nama_anak"
             onValueChange={updateField}
+            required
             value={formData.nama_anak}
           />
           <FormField
@@ -183,6 +209,7 @@ export function ChildForm({
             label="Tanggal lahir"
             name="tanggal_lahir"
             onValueChange={updateField}
+            required
             type="date"
             value={formData.tanggal_lahir}
           />
@@ -215,13 +242,13 @@ export function ChildForm({
             type="tel"
             value={formData.hp_ortu}
           />
-          <FormSelect disabled={isReferenceLoading} label="Kelurahan" onChange={(event) => selectKelurahan(event.target.value)} value={formData.kelurahan_id}>
+          <FormSelect disabled={isReferenceLoading} label="Kelurahan" name="kelurahan_id" onChange={(event) => selectKelurahan(event.target.value)} required value={formData.kelurahan_id}>
             {
               isReferenceLoading && <option value="">Memuat kelurahan...</option>
             }
             {kelurahan.map((item) => <option key={item.id} value={item.id}>{item.nama_kelurahan}</option>)}
           </FormSelect>
-          <FormSelect disabled={isReferenceLoading || !formData.kelurahan_id} label="Posyandu" onChange={(event) => selectPosyandu(event.target.value)} value={formData.posyandu_id}>
+          <FormSelect disabled={isReferenceLoading || !formData.kelurahan_id} label="Posyandu" name="posyandu_id" onChange={(event) => selectPosyandu(event.target.value)} required value={formData.posyandu_id}>
             {
               isReferenceLoading || formData.kelurahan_id === "" && <option value="">{formData.kelurahan_id === "" ? "Pilih kelurahan terlebih dahulu" : "Memuat posyandu..."}</option>
             }
@@ -255,6 +282,20 @@ export function ChildForm({
           </Button>
         </div>
       </Form>
+      <ConfirmationDialog
+        confirmLabel="Ya, Tambah"
+        description={<>Pastikan data balita <strong className="text-text-primary">{pendingChild?.nama_anak}</strong> sudah benar.</>}
+        isLoading={isSaving}
+        isOpen={isConfirmOpen}
+        onCancel={() => {
+          setIsConfirmOpen(false);
+          setPendingChild(null);
+        }}
+        onConfirm={() => {
+          if (pendingChild) void persistChild(pendingChild);
+        }}
+        title="Tambah data balita baru?"
+      />
     </div>
   );
 }
@@ -284,4 +325,13 @@ function normalizeFormData(child: Child | null): ChildFormData {
     rw: child.rw ?? "",
     tanggal_lahir: child.tanggal_lahir ?? "",
   };
+}
+
+function getRequiredFieldError(child: ChildFormData) {
+  if (!child.nama_anak.trim()) return "Nama anak wajib diisi.";
+  if (!child.nik_anak.trim()) return "NIK balita wajib diisi.";
+  if (!child.tanggal_lahir.trim()) return "Tanggal lahir wajib diisi.";
+  if (!child.kelurahan_id || !child.nama_kelurahan.trim()) return "Kelurahan wajib dipilih.";
+  if (!child.posyandu_id || !child.nama_posyandu.trim()) return "Posyandu wajib dipilih.";
+  return null;
 }

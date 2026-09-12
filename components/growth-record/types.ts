@@ -21,6 +21,18 @@ export type GrowthRecordModel = {
 
 export type Gender = "L" | "P";
 
+export type LastGrowthMeasurement = {
+  value: number;
+  periode_bulan: string;
+};
+
+export type LastGrowthMeasurements = {
+  berat_badan: LastGrowthMeasurement | null;
+  tinggi_badan: LastGrowthMeasurement | null;
+  lingkar_kepala: LastGrowthMeasurement | null;
+  lingkar_lengan: LastGrowthMeasurement | null;
+};
+
 export interface GrowthRecordViewModel {
   // Null berarti balita belum memiliki catatan pengukuran pada bulan pilihan.
   id: string | null;
@@ -49,6 +61,10 @@ export interface GrowthRecordViewModel {
   lingkar_lengan: number | null;
   perubahan_lingkar_kepala: number | null;
   perubahan_lingkar_lengan: number | null;
+
+  // Nilai terakhir sebelum periode yang sedang dipilih. Setiap metrik dapat
+  // berasal dari periode berbeda apabila pengukurannya tidak selalu lengkap.
+  pengukuran_terakhir: LastGrowthMeasurements;
 
   catatan: string | null;
 

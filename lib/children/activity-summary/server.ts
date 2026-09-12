@@ -2,6 +2,7 @@ import "server-only";
 
 import type { ChildActivitySummary } from "@/components/children/activity-summary-types";
 import { getOldestDisplayedBirthDate } from "@/lib/children/server";
+import { queryRows } from "@/lib/neon/query";
 import { getAuthenticatedPetugas } from "@/lib/user/server";
 
 type ActivityChild = {
@@ -12,19 +13,16 @@ type ActivityChild = {
 };
 
 export async function getChildActivitySummary(month: number, year: number): Promise<ChildActivitySummary> {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { posyanduId } = await getAuthenticatedPetugas();
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
   const referenceDate = new Date(Date.UTC(year, month, 0));
   const oldestBirthDate = getOldestDisplayedBirthDate(month, year);
-  const { data, error } = await supabase
-    .from("balita")
-    .select("id, jenis_kelamin, tanggal_lahir, registered_at")
-    .eq("posyandu_id", posyanduId)
-    .lt("registered_at", monthEnd.toISOString());
-  if (error) throw error;
-
-  const children = (data ?? []) as ActivityChild[];
+  const children = await queryRows<ActivityChild>(
+    `select id, jenis_kelamin, tanggal_lahir, registered_at
+     from balita where posyandu_id = $1 and registered_at < $2::timestamptz`,
+    [posyanduId, monthEnd.toISOString()],
+  );
   const ageGroups = { infantMale: 0, infantFemale: 0, childMale: 0, childFemale: 0 };
   const monthlyRegistrations = Array.from({ length: 12 }, (_, index) => ({ month: index + 1, count: 0 }));
   let newChildren = 0;

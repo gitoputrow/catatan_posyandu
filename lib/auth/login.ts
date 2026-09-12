@@ -1,7 +1,7 @@
 import "server-only";
 
-import { supabaseServer } from "@/lib/supabase/server";
+import { neonAuth } from "@/lib/auth/neon";
 
 export async function signInWithEmailAndPassword(email: string, password: string) {
-  return supabaseServer.auth.signInWithPassword({ email, password });
+  return neonAuth.signIn.email({ email, password });
 }

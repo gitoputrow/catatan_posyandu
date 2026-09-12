@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { Form, FormField } from "@/components/ui/form";
 import { useLogin } from "@/hooks/api/use-login";
 
 export function LoginForm() {
+  const router = useRouter();
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const { errorMessage, isLoading, login } = useLogin();
 
@@ -19,7 +21,10 @@ export function LoginForm() {
       String(formData.get("password") ?? ""),
     );
 
-    if (isLoggedIn) window.location.assign("/dashboard");
+    if (isLoggedIn) {
+      router.replace("/dashboard");
+      router.refresh();
+    }
   }
 
   return (

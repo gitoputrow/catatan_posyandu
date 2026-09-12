@@ -47,7 +47,7 @@ export function Form({ children, className = "", ...props }: FormHTMLAttributes<
 }
 
 export function FormField({ label, className = "", onValueChange, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; onValueChange?: (name: string, value: string) => void }) {
-  return <label className={`block text-sm font-semibold text-text-primary ${className}`}>{label}<input className={`mt-2 ${inputClassName}`} {...props} onChange={(event) => { props.onChange?.(event); onValueChange?.(event.target.name, event.target.value); }} /></label>;
+  return <label className={`block text-sm font-semibold text-text-primary ${className}`}><FieldLabel label={label} required={props.required} /><input className={`mt-2 ${inputClassName}`} {...props} onChange={(event) => { props.onChange?.(event); onValueChange?.(event.target.name, event.target.value); }} /></label>;
 }
 
 export function FormSelect({ children, className = "", label, ...props }: SelectHTMLAttributes<HTMLSelectElement> & { children: ReactNode; label: string }) {
@@ -56,7 +56,7 @@ export function FormSelect({ children, className = "", label, ...props }: Select
 
   return (
     <label className={`block text-sm font-semibold text-text-primary ${className}`}>
-      {label}
+      <FieldLabel label={label} required={props.required} />
       <SearchableSelect
         ariaLabel={props["aria-label"] ?? label}
         className="mt-2"
@@ -224,7 +224,11 @@ export function SearchableSelect({
 }
 
 export function FormTextarea({ label, className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }) {
-  return <label className={`block text-sm font-semibold text-text-primary ${className}`}>{label}<textarea className="mt-2 min-h-24 w-full rounded-lg border border-border bg-surface px-3 py-2 font-normal text-text-primary outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60" {...props} /></label>;
+  return <label className={`block text-sm font-semibold text-text-primary ${className}`}><FieldLabel label={label} required={props.required} /><textarea className="mt-2 min-h-24 w-full rounded-lg border border-border bg-surface px-3 py-2 font-normal text-text-primary outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60" {...props} /></label>;
+}
+
+function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+  return <>{label}{required && <span aria-hidden="true" className="ml-1 text-error">*</span>}</>;
 }
 
 function getOptionsFromChildren(children: ReactNode): SearchableSelectOption[] {

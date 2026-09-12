@@ -4,7 +4,7 @@ type UserRoleLike = {
 };
 
 export function isKaderRole(value?: string | null) {
-  return value?.toLowerCase().includes("kader") ?? false;
+  return value?.trim().toLowerCase() === "kader";
 }
 
 export function canWriteAsKader(user?: UserRoleLike | null) {

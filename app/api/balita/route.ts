@@ -10,11 +10,20 @@ function isChildInput(value: unknown): value is ChildInput {
   if (!value || typeof value !== "object") return false;
 
   const child = value as Partial<ChildInput>;
-  if ("id" in child || "created_by" in child || "created_by_name" in child || "created_at" in child || "registered_at" in child || "updated_at" in child) return false;
+  if ("id" in child || "inactive_at" in child || "inactive_reason" in child || "created_by" in child || "created_by_name" in child || "created_at" in child || "registered_at" in child || "updated_at" in child) return false;
   return (
-    typeof child.nik_anak === "string" &&
-    child.nik_anak.trim().length > 0
+    hasText(child.nama_anak) &&
+    hasText(child.nik_anak) &&
+    hasText(child.tanggal_lahir) &&
+    hasText(child.kelurahan_id) &&
+    hasText(child.nama_kelurahan) &&
+    hasText(child.posyandu_id) &&
+    hasText(child.nama_posyandu)
   );
+}
+
+function hasText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export async function GET(request: Request) {
@@ -64,9 +73,17 @@ export async function POST(request: Request) {
       return badRequest("Payload balita tidak valid.");
     }
 
-    if (!isChildInput(payload)) {
-      return badRequest("NIK balita wajib diisi.");
+    if (!payload || typeof payload !== "object") {
+      return badRequest("Payload balita tidak valid.");
     }
+
+    const child = payload as Partial<ChildInput>;
+    if (!hasText(child.nama_anak)) return badRequest("Nama anak wajib diisi.");
+    if (!hasText(child.nik_anak)) return badRequest("NIK balita wajib diisi.");
+    if (!hasText(child.tanggal_lahir)) return badRequest("Tanggal lahir wajib diisi.");
+    if (!hasText(child.kelurahan_id) || !hasText(child.nama_kelurahan)) return badRequest("Kelurahan wajib dipilih.");
+    if (!hasText(child.posyandu_id) || !hasText(child.nama_posyandu)) return badRequest("Posyandu wajib dipilih.");
+    if (!isChildInput(payload)) return badRequest("Payload balita tidak valid.");
 
     const { data, error } = await createChild(payload);
     if (error) throw error;

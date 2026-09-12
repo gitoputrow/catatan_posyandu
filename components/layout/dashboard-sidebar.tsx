@@ -280,9 +280,6 @@ export function DashboardSidebar() {
           <p className="mt-1 text-xs leading-5 text-text-secondary">
             Hubungi admin RW bila ada kendala penggunaan.
           </p>
-          <button className="mt-3 text-xs font-bold text-primary" type="button">
-            Pusat Bantuan
-          </button>
         </div>
       </aside>
       <ConfirmationDialog

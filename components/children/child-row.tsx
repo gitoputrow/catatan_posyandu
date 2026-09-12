@@ -9,13 +9,15 @@ type ChildRowProps = {
   child: Child;
   onDelete: (child: Child) => void;
   onEdit: (child: Child) => void;
+  onToggleStatus: (child: Child) => void;
   readOnly?: boolean;
   referenceDate: Date;
   showSensitiveData?: boolean;
 };
 
-export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceDate, showSensitiveData = true }: ChildRowProps) {
+export function ChildRow({ child, onDelete, onEdit, onToggleStatus, readOnly = false, referenceDate, showSensitiveData = true }: ChildRowProps) {
   const router = useRouter();
+  const isInactive = Boolean(child.inactive_at);
 
   return (
     <tr
@@ -30,7 +32,8 @@ export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceD
       tabIndex={0}
     >
       <td className="px-3 py-3 text-sm font-bold text-text-primary">
-        {child.nama_anak}
+        <span className="block">{child.nama_anak}</span>
+        <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${isInactive ? "bg-error/10 text-error" : "bg-primary/10 text-primary"}`}>{isInactive ? "Nonaktif" : "Aktif"}</span>
       </td>
       <td className="px-3 py-3 font-mono text-xs text-text-secondary">
         {sensitiveValue(child.nik_anak, showSensitiveData)}
@@ -47,7 +50,7 @@ export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceD
         {!readOnly && <div className="flex justify-end gap-1">
           <button
             aria-label={`Edit ${child.nama_anak}`}
-            className="rounded-lg p-1.5 text-primary transition hover:bg-primary/10"
+            className="cursor-pointer rounded-lg p-1.5 text-primary transition hover:bg-primary/10"
             onClick={(event) => {
               event.stopPropagation();
               onEdit(child);
@@ -57,8 +60,19 @@ export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceD
             <EditIcon />
           </button>
           <button
+            aria-label={`${isInactive ? "Aktifkan kembali" : "Nonaktifkan"} ${child.nama_anak}`}
+            className={`cursor-pointer rounded-lg p-1.5 transition ${isInactive ? "text-primary hover:bg-primary/10" : "text-warning hover:bg-warning/10"}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleStatus(child);
+            }}
+            type="button"
+          >
+            <StatusIcon isInactive={isInactive} />
+          </button>
+          <button
             aria-label={`Hapus ${child.nama_anak}`}
-            className="rounded-lg p-1.5 text-error transition hover:bg-error/10"
+            className="cursor-pointer rounded-lg p-1.5 text-error transition hover:bg-error/10"
             onClick={(event) => {
               event.stopPropagation();
               onDelete(child);
@@ -71,6 +85,12 @@ export function ChildRow({ child, onDelete, onEdit, readOnly = false, referenceD
       </td>
     </tr>
   );
+}
+
+function StatusIcon({ isInactive }: { isInactive: boolean }) {
+  return isInactive
+    ? <svg aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20 11a8 8 0 11-2.3-5.7M20 4v7h-7" /></svg>
+    : <svg aria-hidden="true" className="size-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7" /></svg>;
 }
 
 function getAge(birthDate: string | null | undefined, referenceDate: Date) {

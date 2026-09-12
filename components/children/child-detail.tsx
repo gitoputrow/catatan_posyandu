@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ChildForm } from "@/components/children/child-form";
+import { ChildStatusDialog } from "@/components/children/child-status-dialog";
 import type { Child } from "@/components/children/types";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/components/user/user-provider";
-import { removeChild, updateChild } from "@/lib/children/api";
+import { deactivateChild, reactivateChild, removeChild, updateChild } from "@/lib/children/api";
 import { sensitiveValue } from "@/lib/privacy";
 
 export function ChildDetail({ initialChild }: { initialChild: Child }) {
@@ -15,6 +16,7 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
   const { canManage } = useCurrentUser();
   const [child, setChild] = useState(initialChild);
   const [isEditing, setIsEditing] = useState(false);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
 
   async function deleteChild() {
     if (!window.confirm(`Hapus data ${child.nama_anak}?`)) return;
@@ -28,11 +30,21 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
 
   async function saveChild(updatedChild: Child) {
     const payload = Object.fromEntries(
-      Object.entries(updatedChild).filter(([key]) => !["id", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key)),
-    ) as Omit<Child, "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
+      Object.entries(updatedChild).filter(([key]) => !["id", "inactive_at", "inactive_reason", "created_by", "created_by_name", "created_at", "registered_at", "updated_at"].includes(key)),
+    ) as Omit<Child, "id" | "inactive_at" | "inactive_reason" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at">;
     const savedChild = await updateChild(updatedChild.id, payload);
     setChild(savedChild);
     setIsEditing(false);
+  }
+
+  async function deactivateCurrentChild(inactiveAt: string, inactiveReason: string) {
+    const savedChild = await deactivateChild(child.id, inactiveAt, inactiveReason);
+    setChild((current) => ({ ...current, ...savedChild, created_by_name: current.created_by_name }));
+  }
+
+  async function reactivateCurrentChild() {
+    const savedChild = await reactivateChild(child.id);
+    setChild((current) => ({ ...current, ...savedChild, created_by_name: current.created_by_name }));
   }
 
   return (
@@ -48,8 +60,11 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">{child.nama_anak}</h1>
           <p className="mt-2 text-sm text-text-secondary">NIK Anak: {sensitiveValue(child.nik_anak, canManage)}</p>
         </div>
-        {canManage && <div className="flex gap-3">
+        {canManage && <div className="flex flex-wrap gap-3">
           <Button onClick={() => setIsEditing(true)} variant="outline">Edit Data</Button>
+          <Button onClick={() => setIsStatusDialogOpen(true)} variant={child.inactive_at ? "primary" : "danger"}>
+            {child.inactive_at ? "Aktifkan Kembali" : "Nonaktifkan"}
+          </Button>
           <Button onClick={deleteChild} variant="danger">Hapus</Button>
         </div>}
       </header>
@@ -58,9 +73,12 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
         <DetailCard title="Informasi Anak">
           <DetailItem label="Nama anak" value={child.nama_anak} />
           <DetailItem label="Dibuat oleh" value={child.created_by_name ?? child.created_by ?? "-"} />
+          <DetailItem label="Ditambahkan pada" value={formatDate(child.registered_at ?? child.created_at)} />
+          <DetailItem label="Status" value={child.inactive_at ? "Nonaktif" : "Aktif"} />
+          {child.inactive_at && <DetailItem label="Dinonaktifkan pada" value={formatDate(child.inactive_at)} />}
+          {child.inactive_at && <DetailItem label="Alasan nonaktif" value={child.inactive_reason ?? "-"} />}
           <DetailItem label="NIK anak" value={sensitiveValue(child.nik_anak, canManage)} />
-          <DetailItem label="Nomor KK" value={sensitiveValue(child.nomor_kk, canManage)} />
-          <DetailItem label="Anak ke" value={String(child.no_urut_anak)} />
+          <DetailItem label="Anak ke" value={child.no_urut_anak == null ? "-" : String(child.no_urut_anak)} />
           {child.tanggal_lahir && <DetailItem label="Tanggal lahir" value={formatDate(child.tanggal_lahir)} />}
           <DetailItem label="Jenis kelamin" value={child.jenis_kelamin === "P" ? "Perempuan" : "Laki-laki"} />
         </DetailCard>
@@ -69,8 +87,6 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
           <DetailItem label="Nama ibu" value={child.nama_ibu} />
           <DetailItem label="Nama ayah" value={child.nama_ayah} />
           <DetailItem label="NIK orang tua" value={sensitiveValue(child.nik_ortu, canManage)} />
-          <DetailItem label="No. HP ibu" value={sensitiveValue(child.no_hp_ibu, canManage)} />
-          <DetailItem label="No. HP ayah" value={sensitiveValue(child.no_hp_ayah, canManage)} />
           <DetailItem label="No. HP utama" value={sensitiveValue(child.hp_ortu, canManage)} />
         </DetailCard>
 
@@ -84,6 +100,14 @@ export function ChildDetail({ initialChild }: { initialChild: Child }) {
       </section>
 
       {canManage && isEditing && <ChildForm child={child} onClose={() => setIsEditing(false)} onSave={saveChild} />}
+      {canManage && isStatusDialogOpen && (
+        <ChildStatusDialog
+          child={child}
+          onClose={() => setIsStatusDialogOpen(false)}
+          onDeactivate={deactivateCurrentChild}
+          onReactivate={reactivateCurrentChild}
+        />
+      )}
     </main>
   );
 }
@@ -96,4 +120,14 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   return <div className="grid grid-cols-[minmax(120px,0.8fr)_minmax(0,1.2fr)] gap-4 py-3 text-sm"><dt className="text-text-secondary">{label}</dt><dd className="break-all font-semibold text-text-primary">{value || "-"}</dd></div>;
 }
 
-function formatDate(value: string) { return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(value)); }
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+  }).format(date);
+}

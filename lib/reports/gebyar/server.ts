@@ -2,6 +2,7 @@ import "server-only";
 
 import type { GebyarReport, SavedGebyarReport } from "@/components/reports/gebyar/types";
 import { getOldestDisplayedBirthDate } from "@/lib/children/server";
+import { databaseResult, insertRow, queryOne, queryRows, updateRow } from "@/lib/neon/query";
 import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/user/server";
 
 const tableName = "laporan_gebyar_posyandu";
@@ -96,63 +97,24 @@ type GebyarReportRow = SavedGebyarReport & {
 };
 
 export async function getGebyarReport(month: number, year: number): Promise<GebyarReport> {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { posyanduId } = await getAuthenticatedPetugas();
   const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
   const nextPeriod = new Date(Date.UTC(year, month, 1));
   const monthEnd = `${nextPeriod.getUTCFullYear()}-${String(nextPeriod.getUTCMonth() + 1).padStart(2, "0")}-01`;
 
-  const [posyanduResult, cadreResult, attendanceResult, activityResult, nutrition, gebyarResult] = await Promise.all([
-    supabase
-      .from("posyandu")
-      .select("nama_posyandu, alamat, rt, rw, nama_kelurahan, nama_kecamatan, nama_kota")
-      .eq("id", posyanduId)
-      .single(),
-    supabase
-      .from("petugas")
-      .select("id, nama")
-      .eq("posyandu_id", posyanduId)
-      .eq("jenis_petugas", "kader")
-      .order("nama", { ascending: true }),
-    supabase
-      .from("laporan_kehadiran_posyandu")
-      .select("id_petugas, total_ibu_hamil")
-      .eq("posyandu_id", posyanduId)
-      .gte("periode", monthStart)
-      .lt("periode", monthEnd)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("laporan_kegiatan_posyandu")
-      .select("periksa_bumil, dapat_vit_a, balita_kmsk, imunisasi_tt_1, imunisasi_tt_2, total_kb_iud, total_kb_implant, total_kb_suntik, total_kb_pil, total_kb_kondom, total_kb_mop, total_kb_mow, total_bcg_l, total_bcg_p, total_polio_1_l, total_polio_1_p, total_polio_2_l, total_polio_2_p, total_polio_3_l, total_polio_3_p, total_polio_4_l, total_polio_4_p, total_campak_l, total_campak_p, total_dpt_1_l, total_dpt_1_p, total_dpt_2_l, total_dpt_2_p, total_dpt_3_l, total_dpt_3_p, total_hepatitis_b_1_l, total_hepatitis_b_1_p, total_hepatitis_b_2_l, total_hepatitis_b_2_p, total_hepatitis_b_3_l, total_hepatitis_b_3_p, total_balita_diare_l, total_balita_diare_p, total_oralit_l, total_oralit_p")
-      .eq("posyandu_id", posyanduId)
-      .gte("periode", monthStart)
-      .lt("periode", monthEnd)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    getNutritionSummary(supabase, posyanduId, month, year),
-    supabase
-      .from(tableName)
-      .select("id, periode, total_pus_binaan, total_kb_binaan, total_kb_dilayani, pemberian_tambahan_makanan, program_tambahan_total_ppks, program_tambahan_total_bkb, program_tambahan_total_paud, program_tambahan_total_gsi, program_tambahan_total_psn, program_tambahan_total_lainnya, mitra_total_perusahaan, mitra_total_bumn_bumd, mitra_total_kantor_dinas, mitra_total_lsm_lsom, dana_sehat_total_keluarga_sasaran, dana_sehat_total_sumbangan")
-      .eq("posyandu_id", posyanduId)
-      .gte("periode", monthStart)
-      .lt("periode", monthEnd)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [posyandu, cadres, attendance, activity, nutrition, gebyar] = await Promise.all([
+    queryOne<PosyanduRow>("select nama_posyandu, alamat, rt, rw, nama_kelurahan, nama_kecamatan, nama_kota from posyandu where id = $1", [posyanduId]),
+    queryRows<CadreRow>("select id, nama from petugas where posyandu_id = $1 and lower(jenis_petugas) = 'kader' and is_active = true order by nama", [posyanduId]),
+    queryOne<AttendanceRow>(`select id_petugas, total_ibu_hamil from laporan_kehadiran_posyandu where posyandu_id = $1
+      and periode >= $2::date and periode < $3::date order by created_at desc nulls last limit 1`, [posyanduId, monthStart, monthEnd]),
+    queryOne<ActivityRow>(`select * from laporan_kegiatan_posyandu where posyandu_id = $1
+      and periode >= $2::date and periode < $3::date order by created_at desc limit 1`, [posyanduId, monthStart, monthEnd]),
+    getNutritionSummary(posyanduId, month, year),
+    queryOne<GebyarReportRow>(`select * from laporan_gebyar_posyandu where posyandu_id = $1
+      and periode >= $2::timestamptz and periode < $3::timestamptz order by created_at desc limit 1`, [posyanduId, monthStart, monthEnd]),
   ]);
 
-  if (posyanduResult.error) throw posyanduResult.error;
-  if (cadreResult.error) throw cadreResult.error;
-  if (attendanceResult.error) throw attendanceResult.error;
-  if (activityResult.error) throw activityResult.error;
-  if (gebyarResult.error) throw gebyarResult.error;
-
-  const posyandu = posyanduResult.data as PosyanduRow;
-  const attendance = attendanceResult.data as AttendanceRow | null;
-  const activity = activityResult.data as ActivityRow | null;
-  const gebyar = gebyarResult.data as GebyarReportRow | null;
+  if (!posyandu) throw new Error("Data Posyandu tidak ditemukan.");
   const totalPregnantWomen = attendance?.total_ibu_hamil ?? 0;
   const servedParticipants = activity ? {
     condom: activity.total_kb_kondom ?? 0,
@@ -164,7 +126,6 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
   } : null;
   const targetFamilies = gebyar?.dana_sehat_total_keluarga_sasaran ?? null;
   const contributingFamilies = gebyar?.dana_sehat_total_sumbangan ?? null;
-  const cadres = (cadreResult.data ?? []) as CadreRow[];
   const cadreIds = new Set(cadres.map((cadre) => cadre.id));
   const presentCadres = new Set(
     (attendance?.id_petugas ?? []).filter((officerId) => cadreIds.has(officerId)),
@@ -262,7 +223,7 @@ export async function getGebyarReport(month: number, year: number): Promise<Geby
 }
 
 export async function saveGebyarReport(input: GebyarReportInput) {
-  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const payload = {
     total_pus_binaan: input.total_pus_binaan,
@@ -282,32 +243,17 @@ export async function saveGebyarReport(input: GebyarReportInput) {
     dana_sehat_total_keluarga_sasaran: input.dana_sehat_total_keluarga_sasaran,
     dana_sehat_total_sumbangan: input.dana_sehat_total_sumbangan,
   };
-  const { data: existing, error: existingError } = await supabase
-    .from(tableName)
-    .select("id")
-    .eq("posyandu_id", posyanduId)
-    .eq("periode", period)
-    .limit(1)
-    .maybeSingle();
-  if (existingError) throw existingError;
+  const existing = await queryOne<{ id: string }>("select id from laporan_gebyar_posyandu where posyandu_id = $1 and periode = $2::timestamptz limit 1", [posyanduId, period]);
 
   if (existing) {
-    const result = await supabase
-      .from(tableName)
-      .update({ ...payload, periode: period, updated_at: new Date().toISOString() })
-      .eq("id", existing.id)
-      .eq("posyandu_id", posyanduId)
-      .select("id, periode")
-      .single();
-    return { ...result, mode: "updated" as const };
+    const updatePayload = { ...payload, periode: period, updated_at: new Date().toISOString() };
+    const data = await updateRow<{ id: string; periode: string }>(tableName, updatePayload, Object.keys(updatePayload), { id: existing.id, posyandu_id: posyanduId });
+    return { ...databaseResult(data), mode: "updated" as const };
   }
 
-  const result = await supabase
-    .from(tableName)
-    .insert({ ...payload, periode: period, posyandu_id: posyanduId, created_by: petugasId })
-    .select("id, periode")
-    .single();
-  return { ...result, mode: "created" as const };
+  const insertPayload = { ...payload, periode: period, posyandu_id: posyanduId, created_by: petugasId };
+  const data = await insertRow<{ id: string; periode: string }>(tableName, insertPayload, Object.keys(insertPayload));
+  return { ...databaseResult(data), mode: "created" as const };
 }
 
 function normalizePeriod(value: string) {
@@ -335,7 +281,6 @@ function sumGender(
 }
 
 async function getNutritionSummary(
-  supabase: Awaited<ReturnType<typeof getAuthenticatedPetugas>>["supabase"],
   posyanduId: string,
   month: number,
   year: number,
@@ -346,28 +291,16 @@ async function getNutritionSummary(
   const registrationStart = new Date(Date.UTC(year, 0, 1)).toISOString();
   const oldestBirthDate = getOldestDisplayedBirthDate(month, year);
 
-  const [childrenResult, measurementsResult] = await Promise.all([
-    supabase
-      .from("balita")
-      .select("id")
-      .eq("posyandu_id", posyanduId)
-      .gte("registered_at", registrationStart)
-      .lt("registered_at", currentEnd.toISOString())
-      .or(`tanggal_lahir.is.null,tanggal_lahir.gte.${oldestBirthDate}`),
-    supabase
-      .from("tumbuh_kembang_balita")
-      .select("balita_id, periode_bulan, berat_badan")
-      .eq("posyandu_id", posyanduId)
-      .lt("periode_bulan", currentEnd.toISOString())
-      .not("berat_badan", "is", null)
-      .order("periode_bulan", { ascending: false }),
+  const [children, measurementsResult] = await Promise.all([
+    queryRows<NutritionChild>(`select id from balita where posyandu_id = $1 and registered_at >= $2::timestamptz
+      and registered_at < $3::timestamptz and (tanggal_lahir is null or tanggal_lahir >= $4::date)`,
+      [posyanduId, registrationStart, currentEnd.toISOString(), oldestBirthDate]),
+    queryRows<NutritionMeasurement>(`select balita_id, periode_bulan, berat_badan::float8 as berat_badan
+      from tumbuh_kembang_balita where posyandu_id = $1 and periode_bulan < $2::date
+      and berat_badan is not null order by periode_bulan desc`, [posyanduId, currentEnd.toISOString()]),
   ]);
-  if (childrenResult.error) throw childrenResult.error;
-  if (measurementsResult.error) throw measurementsResult.error;
-
-  const children = (childrenResult.data ?? []) as NutritionChild[];
   const childIds = new Set(children.map((child) => child.id));
-  const measurements = ((measurementsResult.data ?? []) as NutritionMeasurement[])
+  const measurements = measurementsResult
     .filter((measurement) => childIds.has(measurement.balita_id));
   const currentByChild = new Map<string, NutritionMeasurement>();
   const previousByChild = new Map<string, NutritionMeasurement>();

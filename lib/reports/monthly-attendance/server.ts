@@ -6,6 +6,7 @@ import type {
   MonthlyPosyanduInformation,
   SavedMonthlyAttendanceReport,
 } from "@/components/reports/monthly-attendance/types";
+import { databaseResult, insertRow, pgUuidArray, queryOne, queryRows, updateRow } from "@/lib/neon/query";
 import { getAuthenticatedPetugas, getAuthenticatedPetugasForWrite } from "@/lib/user/server";
 
 type AttendingChild = {
@@ -33,6 +34,13 @@ type AttendanceInformationRow = {
   id_petugas: string[] | null;
   created_by: string | null;
 };
+
+const attendanceColumns = [
+  "periode", "total_pus", "total_wus", "total_ibu_hamil", "total_ibu_menyusui",
+  "total_pria_plkb", "total_wanita_plkb", "total_pria_medis", "total_wanita_medis",
+  "total_balita_pria_meninggal", "total_balita_wanita_meninggal",
+  "total_balita_pria_lahir", "total_balita_wanita_lahir", "id_petugas", "posyandu_id", "created_by",
+] as const;
 
 export type MonthlyAttendanceInput = {
   periode: string;
@@ -65,85 +73,51 @@ export class MonthlyAttendanceReportExistsError extends Error {
 }
 
 export async function listReportOfficers(): Promise<ReportOfficer[]> {
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
-  const { data, error } = await supabase
-    .from("petugas")
-    .select("id, nama, jenis_kelamin")
-    .eq("posyandu_id", posyanduId)
-    .order("nama", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as ReportOfficer[];
+  const { posyanduId } = await getAuthenticatedPetugas();
+  return queryRows<ReportOfficer>(
+    "select id, nama, jenis_kelamin from petugas where posyandu_id = $1 and is_active = true order by nama",
+    [posyanduId],
+  );
 }
 
 export async function createMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
   const reportPayload = toReportPayload(input);
 
-  if (uniqueOfficerIds.length > 0) {
-    const { data: officers, error: officerError } = await supabase
-      .from("petugas")
-      .select("id")
-      .eq("posyandu_id", posyanduId)
-      .in("id", uniqueOfficerIds);
-    if (officerError) throw officerError;
-    if ((officers ?? []).length !== uniqueOfficerIds.length) {
-      throw new Error("Terdapat petugas yang tidak terdaftar di Posyandu Anda.");
-    }
-  }
-
-  const { data: existing, error: existingError } = await supabase
-    .from("laporan_kehadiran_posyandu")
-    .select("id")
-    .eq("posyandu_id", posyanduId)
-    .eq("periode", period)
-    .limit(1)
-    .maybeSingle();
-  if (existingError) throw existingError;
+  await validateReportOfficers(posyanduId, uniqueOfficerIds);
+  const existing = await queryOne<{ id: string }>(
+    "select id from laporan_kehadiran_posyandu where posyandu_id = $1 and periode = $2::date limit 1",
+    [posyanduId, period],
+  );
   if (existing) throw new MonthlyAttendanceReportExistsError();
-
-  return supabase
-    .from("laporan_kehadiran_posyandu")
-    .insert({ ...reportPayload, periode: period, id_petugas: uniqueOfficerIds, posyandu_id: posyanduId, created_by: petugasId })
-    .select("id, periode")
-    .single();
+  const data = await insertRow<{ id: string; periode: string }>("laporan_kehadiran_posyandu", {
+    ...reportPayload, periode: period, id_petugas: pgUuidArray(uniqueOfficerIds), posyandu_id: posyanduId, created_by: petugasId,
+  }, attendanceColumns);
+  return databaseResult(data);
 }
 
 export async function saveMonthlyAttendanceReport(input: MonthlyAttendanceInput) {
-  const { petugasId, supabase, posyanduId } = await getAuthenticatedPetugasForWrite();
+  const { petugasId, posyanduId } = await getAuthenticatedPetugasForWrite();
   const period = normalizePeriod(input.periode);
   const uniqueOfficerIds = [...new Set(input.id_petugas)];
   const reportPayload = toReportPayload(input);
-  await validateReportOfficers(supabase, posyanduId, uniqueOfficerIds);
+  await validateReportOfficers(posyanduId, uniqueOfficerIds);
 
-  const { data: existing, error: existingError } = await supabase
-    .from("laporan_kehadiran_posyandu")
-    .select("id")
-    .eq("posyandu_id", posyanduId)
-    .eq("periode", period)
-    .limit(1)
-    .maybeSingle();
-  if (existingError) throw existingError;
+  const existing = await queryOne<{ id: string }>(
+    "select id from laporan_kehadiran_posyandu where posyandu_id = $1 and periode = $2::date limit 1",
+    [posyanduId, period],
+  );
 
-  const payload = { ...reportPayload, periode: period, id_petugas: uniqueOfficerIds };
+  const payload = { ...reportPayload, periode: period, id_petugas: pgUuidArray(uniqueOfficerIds) };
   if (existing) {
-    const result = await supabase
-      .from("laporan_kehadiran_posyandu")
-      .update(payload)
-      .eq("id", existing.id)
-      .eq("posyandu_id", posyanduId)
-      .select("id, periode")
-      .single();
-    return { ...result, mode: "updated" as const };
+    const data = await updateRow<{ id: string; periode: string }>("laporan_kehadiran_posyandu", payload, attendanceColumns, { id: existing.id, posyandu_id: posyanduId });
+    return { ...databaseResult(data), mode: "updated" as const };
   }
 
-  const result = await supabase
-    .from("laporan_kehadiran_posyandu")
-    .insert({ ...payload, posyandu_id: posyanduId, created_by: petugasId })
-    .select("id, periode")
-    .single();
-  return { ...result, mode: "created" as const };
+  const data = await insertRow<{ id: string; periode: string }>("laporan_kehadiran_posyandu", { ...payload, posyandu_id: posyanduId, created_by: petugasId }, attendanceColumns);
+  return { ...databaseResult(data), mode: "created" as const };
 }
 
 export async function getMonthlyAttendanceReport(
@@ -153,35 +127,27 @@ export async function getMonthlyAttendanceReport(
   const monthStart = new Date(Date.UTC(year, month - 1, 1));
   const monthEnd = new Date(Date.UTC(year, month, 1));
   const referenceDate = new Date(Date.UTC(year, month, 0));
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { posyanduId } = await getAuthenticatedPetugas();
 
   const informationPromise = getMonthlyPosyanduInformation(
-    supabase,
     posyanduId,
     monthStart,
     monthEnd,
   );
 
-  const { data: measurements, error: measurementError } = await supabase
-    .from("tumbuh_kembang_balita")
-    .select("balita_id")
-    .eq("posyandu_id", posyanduId)
-    .gte("periode_bulan", monthStart.toISOString())
-    .lt("periode_bulan", monthEnd.toISOString())
-    .not("berat_badan", "is", null);
+  const measurements = await queryRows<{ balita_id: string }>(
+    `select balita_id from tumbuh_kembang_balita where posyandu_id = $1
+     and periode_bulan >= $2::date and periode_bulan < $3::date and berat_badan is not null`,
+    [posyanduId, monthStart.toISOString(), monthEnd.toISOString()],
+  );
 
-  if (measurementError) throw measurementError;
-
-  const childIds = [...new Set((measurements ?? []).map((record) => record.balita_id))];
+  const childIds = [...new Set(measurements.map((record) => record.balita_id))];
   let children: AttendingChild[] = [];
   if (childIds.length > 0) {
-    const { data, error: childrenError } = await supabase
-      .from("balita")
-      .select("id, jenis_kelamin, tanggal_lahir, registered_at")
-      .eq("posyandu_id", posyanduId)
-      .in("id", childIds);
-    if (childrenError) throw childrenError;
-    children = (data ?? []) as AttendingChild[];
+    children = await queryRows<AttendingChild>(
+      "select id, jenis_kelamin, tanggal_lahir, registered_at from balita where posyandu_id = $1 and id = any($2::uuid[])",
+      [posyanduId, pgUuidArray(childIds)],
+    );
   }
 
   const counters = new Map<string, { newChildren: number; existingChildren: number }>();
@@ -239,44 +205,30 @@ function createRows(counters: Map<string, { newChildren: number; existingChildre
 }
 
 async function getMonthlyPosyanduInformation(
-  supabase: Awaited<ReturnType<typeof getAuthenticatedPetugas>>["supabase"],
   posyanduId: string,
   monthStart: Date,
   monthEnd: Date,
 ): Promise<{ information: MonthlyPosyanduInformation; savedReport: SavedMonthlyAttendanceReport | null }> {
-  const { data, error } = await supabase
-    .from("laporan_kehadiran_posyandu")
-    .select("id, periode, total_pus, total_wus, total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis, total_wanita_medis, total_balita_pria_meninggal, total_balita_wanita_meninggal, total_balita_pria_lahir, total_balita_wanita_lahir, id_petugas, created_by")
-    .eq("posyandu_id", posyanduId)
-    .gte("periode", formatDateOnly(monthStart))
-    .lt("periode", formatDateOnly(monthEnd))
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
+  const data = await queryOne<AttendanceInformationRow>(`select id, periode, total_pus, total_wus,
+    total_ibu_hamil, total_ibu_menyusui, total_pria_plkb, total_wanita_plkb, total_pria_medis,
+    total_wanita_medis, total_balita_pria_meninggal, total_balita_wanita_meninggal,
+    total_balita_pria_lahir, total_balita_wanita_lahir, id_petugas, created_by
+    from laporan_kehadiran_posyandu where posyandu_id = $1 and periode >= $2::date and periode < $3::date
+    order by created_at desc nulls last limit 1`, [posyanduId, formatDateOnly(monthStart), formatDateOnly(monthEnd)]);
   if (!data) return { information: emptyInformation(), savedReport: null };
 
   const report = data as AttendanceInformationRow;
   const reportOfficerIds = report.id_petugas ?? [];
   let selectedOfficers: Array<{ id: string; jenis_kelamin: string | null }> = [];
   if (reportOfficerIds.length > 0) {
-    const { data: officers, error: officerError } = await supabase
-      .from("petugas")
-      .select("id, jenis_kelamin")
-      .eq("posyandu_id", posyanduId)
-      .in("id", reportOfficerIds);
-    if (officerError) throw officerError;
-    selectedOfficers = officers ?? [];
+    selectedOfficers = await queryRows<{ id: string; jenis_kelamin: string | null }>(
+      "select id, jenis_kelamin from petugas where posyandu_id = $1 and id = any($2::uuid[])",
+      [posyanduId, pgUuidArray(reportOfficerIds)],
+    );
   }
   let creatorName: string | null = null;
   if (report.created_by) {
-    const { data: creator, error: creatorError } = await supabase
-      .from("petugas")
-      .select("nama")
-      .eq("id", report.created_by)
-      .eq("posyandu_id", posyanduId)
-      .maybeSingle();
-    if (creatorError) throw creatorError;
+    const creator = await queryOne<{ nama: string }>("select nama from petugas where id = $1 and posyandu_id = $2", [report.created_by, posyanduId]);
     creatorName = creator?.nama ?? null;
   }
 
@@ -324,18 +276,12 @@ async function getMonthlyPosyanduInformation(
 }
 
 async function validateReportOfficers(
-  supabase: Awaited<ReturnType<typeof getAuthenticatedPetugas>>["supabase"],
   posyanduId: string,
   officerIds: string[],
 ) {
   if (officerIds.length === 0) return;
-  const { data, error } = await supabase
-    .from("petugas")
-    .select("id")
-    .eq("posyandu_id", posyanduId)
-    .in("id", officerIds);
-  if (error) throw error;
-  if ((data ?? []).length !== officerIds.length) {
+  const data = await queryRows<{ id: string }>("select id from petugas where posyandu_id = $1 and id = any($2::uuid[])", [posyanduId, pgUuidArray(officerIds)]);
+  if (data.length !== officerIds.length) {
     throw new Error("Terdapat petugas yang tidak terdaftar di Posyandu Anda.");
   }
 }

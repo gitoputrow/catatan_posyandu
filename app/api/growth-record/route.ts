@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { badRequest, forbidden, withApiErrorHandling } from "@/app/api/_shared/response";
 import { isSameOriginRequest } from "@/lib/auth/csrf";
 import { createGrowthRecord, listGrowthRecords, type GrowthRecordInput } from "@/lib/growth-record/server";
+import { getGrowthMetricValidationError, isValidGrowthMetric } from "@/lib/growth-record/validation";
 
 const defaultLimit = 10;
 const maxLimit = 100;
@@ -48,17 +49,15 @@ function isGrowthRecordInput(value: unknown): value is GrowthRecordInput {
   if (!value || typeof value !== "object") return false;
   const record = value as Partial<GrowthRecordInput>;
   if ("id" in record || "created_by" in record || "created_at" in record || "updated_at" in record) return false;
-  const validMetric = (metric: unknown) => metric === null || (typeof metric === "number" && Number.isFinite(metric));
-
   return (
     typeof record.balita_id === "string" &&
     record.balita_id.length > 0 &&
     typeof record.periode_bulan === "string" &&
     record.periode_bulan.length > 0 &&
-    validMetric(record.berat_badan) &&
-    validMetric(record.tinggi_badan) &&
-    validMetric(record.lingkar_kepala) &&
-    validMetric(record.lingkar_lengan) &&
+    isValidGrowthMetric(record.berat_badan) &&
+    isValidGrowthMetric(record.tinggi_badan) &&
+    isValidGrowthMetric(record.lingkar_kepala) &&
+    isValidGrowthMetric(record.lingkar_lengan) &&
     (record.tanggal_pengukuran === null || typeof record.tanggal_pengukuran === "string") &&
     (record.catatan === null || typeof record.catatan === "string")
   );
@@ -73,6 +72,11 @@ export async function POST(request: Request) {
       payload = await request.json();
     } catch {
       return badRequest("Payload catatan pertumbuhan tidak valid.");
+    }
+
+    if (payload && typeof payload === "object") {
+      const metricError = getGrowthMetricValidationError(payload);
+      if (metricError) return badRequest(metricError);
     }
 
     if (!isGrowthRecordInput(payload)) {

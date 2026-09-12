@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import type { Child } from "@/components/children/types";
 import type { GrowthRecordViewModel } from "@/components/growth-record/types";
+import { LastMeasurementHint } from "@/components/growth-record/last-measurement-hint";
 import { Button } from "@/components/ui/button";
 import { Form, FormField, FormSelect, FormTextarea, SearchableSelect } from "@/components/ui/form";
 import { getAllChildren } from "@/lib/children/api";
 import { createGrowthRecord, getAllGrowthRecords, updateGrowthRecord } from "@/lib/growth-record/api";
+import { getGrowthMetricValidationError, MAX_GROWTH_METRIC_VALUE } from "@/lib/growth-record/validation";
 
 const monthNames = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -77,7 +79,8 @@ export function GrowthRecordForm({ onModeChange }: { onModeChange?: (isUpdateMod
   }
 
   function selectChild(childId: string) {
-    const existing = existingRecords.find((record) => record.balita_id === childId && record.id);
+    const selectedRecord = existingRecords.find((record) => record.balita_id === childId);
+    const existing = selectedRecord?.id ? selectedRecord : undefined;
     const isUpdateMode = Boolean(existing?.id);
     setExistingRecordId(existing?.id ?? null);
     onModeChange?.(isUpdateMode);
@@ -93,6 +96,9 @@ export function GrowthRecordForm({ onModeChange }: { onModeChange?: (isUpdateMod
       catatan: existing?.catatan ?? "",
     });
   }
+
+  const selectedRecord = existingRecords.find((record) => record.balita_id === form.balita_id);
+  const lastMeasurements = selectedRecord?.pengukuran_terakhir;
 
   function changePeriod(nextMonth: number, nextYear: number) {
     setMonth(nextMonth);
@@ -121,17 +127,22 @@ export function GrowthRecordForm({ onModeChange }: { onModeChange?: (isUpdateMod
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const values = {
+      tanggal_pengukuran: form.tanggal_pengukuran || null,
+      berat_badan: toNumberOrNull(form.berat_badan),
+      tinggi_badan: toNumberOrNull(form.tinggi_badan),
+      lingkar_kepala: toNumberOrNull(form.lingkar_kepala),
+      lingkar_lengan: toNumberOrNull(form.lingkar_lengan),
+      catatan: form.catatan.trim() || null,
+    };
+    const validationError = getGrowthMetricValidationError(values);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
-      const values = {
-        tanggal_pengukuran: form.tanggal_pengukuran || null,
-        berat_badan: toNumberOrNull(form.berat_badan),
-        tinggi_badan: toNumberOrNull(form.tinggi_badan),
-        lingkar_kepala: toNumberOrNull(form.lingkar_kepala),
-        lingkar_lengan: toNumberOrNull(form.lingkar_lengan),
-        catatan: form.catatan.trim() || null,
-      };
       if (existingRecordId) {
         await updateGrowthRecord(existingRecordId, values);
       } else {
@@ -179,10 +190,22 @@ export function GrowthRecordForm({ onModeChange }: { onModeChange?: (isUpdateMod
           </label>
         </div>
         <FormField label="Tanggal pengukuran" name="tanggal_pengukuran" onValueChange={updateField} type="date" value={form.tanggal_pengukuran} />
-        <FormField label="Berat badan (kg)" min="0" name="berat_badan" onValueChange={updateField} step="0.01" type="number" value={form.berat_badan} />
-        <FormField label="Tinggi badan (cm)" min="0" name="tinggi_badan" onValueChange={updateField} step="0.1" type="number" value={form.tinggi_badan} />
-        <FormField label="Lingkar kepala (cm)" min="0" name="lingkar_kepala" onValueChange={updateField} step="0.1" type="number" value={form.lingkar_kepala} />
-        <FormField label="Lingkar lengan (cm)" min="0" name="lingkar_lengan" onValueChange={updateField} step="0.1" type="number" value={form.lingkar_lengan} />
+        <div>
+          <FormField label="Berat badan (kg)" max={MAX_GROWTH_METRIC_VALUE} min="0" name="berat_badan" onValueChange={updateField} step="0.01" type="number" value={form.berat_badan} />
+          {!existingRecordId && <LastMeasurementHint label="Berat terakhir" measurement={lastMeasurements?.berat_badan ?? null} unit="kg" />}
+        </div>
+        <div>
+          <FormField label="Tinggi badan (cm)" max={MAX_GROWTH_METRIC_VALUE} min="0" name="tinggi_badan" onValueChange={updateField} step="0.1" type="number" value={form.tinggi_badan} />
+          {!existingRecordId && <LastMeasurementHint label="Tinggi terakhir" measurement={lastMeasurements?.tinggi_badan ?? null} unit="cm" />}
+        </div>
+        <div>
+          <FormField label="Lingkar kepala (cm)" max={MAX_GROWTH_METRIC_VALUE} min="0" name="lingkar_kepala" onValueChange={updateField} step="0.1" type="number" value={form.lingkar_kepala} />
+          {!existingRecordId && <LastMeasurementHint label="Lingkar kepala terakhir" measurement={lastMeasurements?.lingkar_kepala ?? null} unit="cm" />}
+        </div>
+        <div>
+          <FormField label="Lingkar lengan (cm)" max={MAX_GROWTH_METRIC_VALUE} min="0" name="lingkar_lengan" onValueChange={updateField} step="0.1" type="number" value={form.lingkar_lengan} />
+          {!existingRecordId && <LastMeasurementHint label="Lingkar lengan terakhir" measurement={lastMeasurements?.lingkar_lengan ?? null} unit="cm" />}
+        </div>
         <FormTextarea className="sm:col-span-2" label="Catatan" onChange={(event) => updateField("catatan", event.target.value)} value={form.catatan} />
       </div>
       {error && <p className="px-6 pb-4 text-sm font-medium text-error">{error}</p>}

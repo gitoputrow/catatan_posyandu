@@ -3,6 +3,7 @@ import "server-only";
 import type { DashboardData } from "@/components/dashboard/types";
 import { getOldestDisplayedBirthDate } from "@/lib/children/server";
 import { calculateGrowthTrends, getPeriodTimestamp, type GrowthTrendMeasurement, withGrowthTrendChanges } from "@/lib/growth-trend";
+import { queryOne, queryRows } from "@/lib/neon/query";
 import { getAuthenticatedPetugas } from "@/lib/user/server";
 
 type DashboardChild = {
@@ -11,9 +12,9 @@ type DashboardChild = {
   tanggal_lahir: string | null;
 };
 
-type DashboardMeasurement = {
-  balita_id: string;
-  periode_bulan: string;
+type DashboardMonthlyWeighing = {
+  month: number;
+  count: number;
 };
 
 type DashboardPosyandu = {
@@ -33,62 +34,36 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
   const nextYearStart = new Date(Date.UTC(year + 1, 0, 1)).toISOString();
   const trendSearchEnd = new Date(Date.UTC(referenceYear, referenceMonth, 1)).toISOString();
   const oldestBirthDate = getOldestDisplayedBirthDate(referenceMonth, referenceYear);
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { posyanduId } = await getAuthenticatedPetugas();
 
-  const [posyanduResult, cadreResult, childrenResult, measurementsResult, latestTrendPeriodResult] = await Promise.all([
-    supabase
-      .from("posyandu")
-      .select("nama_posyandu, rt, rw, nama_kelurahan, nama_kecamatan")
-      .eq("id", posyanduId)
-      .single(),
-    supabase
-      .from("petugas")
-      .select("id", { count: "exact", head: true })
-      .eq("posyandu_id", posyanduId)
-      .eq("jenis_petugas", "kader"),
-    supabase
-      .from("balita")
-      .select("id, jenis_kelamin, tanggal_lahir")
-      .eq("posyandu_id", posyanduId)
-      .or(`tanggal_lahir.is.null,tanggal_lahir.gte.${oldestBirthDate}`),
-    supabase
-      .from("tumbuh_kembang_balita")
-      .select("balita_id, periode_bulan")
-      .eq("posyandu_id", posyanduId)
-      .gte("periode_bulan", yearStart)
-      .lt("periode_bulan", nextYearStart)
-      .or("berat_badan.not.is.null,tinggi_badan.not.is.null,lingkar_kepala.not.is.null,lingkar_lengan.not.is.null")
-      .order("periode_bulan", { ascending: true }),
-    supabase
-      .from("tumbuh_kembang_balita")
-      .select("periode_bulan")
-      .eq("posyandu_id", posyanduId)
-      .lt("periode_bulan", trendSearchEnd)
-      .not("berat_badan", "is", null)
-      .order("periode_bulan", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const [posyandu, cadreCount, children, monthlyWeighings, latestTrendPeriodRow] = await Promise.all([
+    queryOne<DashboardPosyandu>("select nama_posyandu, rt, rw, nama_kelurahan, nama_kecamatan from posyandu where id = $1", [posyanduId]),
+    queryOne<{ count: number }>("select count(*)::int as count from petugas where posyandu_id = $1 and lower(jenis_petugas) = 'kader' and is_active = true", [posyanduId]),
+    queryRows<DashboardChild>("select id, jenis_kelamin, tanggal_lahir::text as tanggal_lahir from balita where posyandu_id = $1 and (tanggal_lahir is null or tanggal_lahir >= $2::date)", [posyanduId, oldestBirthDate]),
+    queryRows<DashboardMonthlyWeighing>(`select extract(month from periode_bulan)::int as month,
+        count(distinct balita_id)::int as count
+      from tumbuh_kembang_balita
+      where posyandu_id = $1 and periode_bulan >= $2::date and periode_bulan < $3::date
+        and (berat_badan is not null or tinggi_badan is not null or lingkar_kepala is not null or lingkar_lengan is not null)
+      group by extract(month from periode_bulan)
+      order by month`, [posyanduId, yearStart, nextYearStart]),
+    queryOne<{ periode_bulan: string }>(`select periode_bulan::text as periode_bulan from tumbuh_kembang_balita
+      where posyandu_id = $1 and periode_bulan < $2::date and berat_badan is not null
+      order by periode_bulan desc limit 1`, [posyanduId, trendSearchEnd]),
   ]);
 
-  if (posyanduResult.error) throw posyanduResult.error;
-  if (cadreResult.error) throw cadreResult.error;
-  if (childrenResult.error) throw childrenResult.error;
-  if (measurementsResult.error) throw measurementsResult.error;
-  if (latestTrendPeriodResult.error) throw latestTrendPeriodResult.error;
+  if (!posyandu) throw new Error("Data Posyandu tidak ditemukan.");
 
-  const latestTrendPeriod = latestTrendPeriodResult.data?.periode_bulan ?? null;
+  const latestTrendPeriod = latestTrendPeriodRow?.periode_bulan ?? null;
   const trendPeriods = latestTrendPeriod ? createTrendPeriods(latestTrendPeriod) : null;
   const trendHistoryResult = trendPeriods
-    ? await supabase
-        .from("tumbuh_kembang_balita")
-        .select("balita_id, periode_bulan, berat_badan, tinggi_badan")
-        .eq("posyandu_id", posyanduId)
-        .gte("periode_bulan", trendPeriods.historyStart)
-        .lt("periode_bulan", trendPeriods.currentEnd)
-        .or("berat_badan.not.is.null,tinggi_badan.not.is.null")
-        .order("periode_bulan", { ascending: false })
-    : { data: [], error: null };
-  if (trendHistoryResult.error) throw trendHistoryResult.error;
+    ? await queryRows<GrowthTrendMeasurement>(`select balita_id, periode_bulan::text as periode_bulan,
+        berat_badan::float8 as berat_badan, tinggi_badan::float8 as tinggi_badan
+      from tumbuh_kembang_balita where posyandu_id = $1
+        and periode_bulan >= $2::date and periode_bulan < $3::date
+        and (berat_badan is not null or tinggi_badan is not null)
+      order by periode_bulan desc`, [posyanduId, trendPeriods.historyStart, trendPeriods.currentEnd])
+    : [];
 
   const ageGroups = {
     infantMale: 0,
@@ -96,7 +71,7 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
     childMale: 0,
     childFemale: 0,
   };
-  for (const child of (childrenResult.data ?? []) as DashboardChild[]) {
+  for (const child of children) {
     const age = getAgeInMonths(child.tanggal_lahir, referenceDate);
     if (age === null || age > 60) continue;
     if (age <= 12) {
@@ -106,23 +81,13 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
     else ageGroups.childFemale += 1;
   }
 
-  const childrenByMonth = Array.from({ length: 12 }, () => new Set<string>());
-  const measurements = (measurementsResult.data ?? []) as DashboardMeasurement[];
-  for (const measurement of measurements) {
-    if (getYear(measurement.periode_bulan) !== year) continue;
-    const month = getMonth(measurement.periode_bulan);
-    if (month !== null) childrenByMonth[month - 1].add(measurement.balita_id);
-  }
-
   const growthTrends = trendPeriods
     ? calculateTrendSummary(
-        (trendHistoryResult.data ?? []) as GrowthTrendMeasurement[],
+        trendHistoryResult,
         trendPeriods.currentStart,
         trendPeriods.previousStart,
       )
     : emptyGrowthTrendSummary();
-  const posyandu = posyanduResult.data as DashboardPosyandu;
-
   return {
     year,
     generatedAt: new Date().toISOString(),
@@ -132,13 +97,16 @@ export async function getDashboardData(year: number): Promise<DashboardData> {
       rw: posyandu.rw,
       village: posyandu.nama_kelurahan,
       district: posyandu.nama_kecamatan,
-      cadreCount: cadreResult.count ?? 0,
+      cadreCount: cadreCount?.count ?? 0,
     },
-    totalChildren: childrenResult.data?.length ?? 0,
+    totalChildren: children.length,
     ageGroups,
     growthTrends,
     growthTrendPeriod: latestTrendPeriod,
-    monthlyWeighings: childrenByMonth.map((children, index) => ({ month: index + 1, count: children.size })),
+    monthlyWeighings: Array.from({ length: 12 }, (_, index) => ({
+      month: index + 1,
+      count: monthlyWeighings.find((item) => item.month === index + 1)?.count ?? 0,
+    })),
   };
 }
 
@@ -198,21 +166,4 @@ function getAgeInMonths(value: string | null, referenceDate: Date) {
   const birthDate = new Date(value);
   if (Number.isNaN(birthDate.getTime())) return null;
   return Math.max(0, (referenceDate.getUTCFullYear() - birthDate.getUTCFullYear()) * 12 + referenceDate.getUTCMonth() - birthDate.getUTCMonth() - (referenceDate.getUTCDate() < birthDate.getUTCDate() ? 1 : 0));
-}
-
-function getMonth(value: string) {
-  const match = value.match(/^\d{4}-(\d{1,2})/);
-  if (match) {
-    const month = Number(match[1]);
-    return month >= 1 && month <= 12 ? month : null;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.getUTCMonth() + 1;
-}
-
-function getYear(value: string) {
-  const match = value.match(/^(\d{4})-/);
-  if (match) return Number(match[1]);
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.getUTCFullYear();
 }

@@ -6,6 +6,8 @@ import type {
   GrowthHistoryResponse,
 } from "@/components/growth-history/types";
 import { getOldestDisplayedBirthDate } from "@/lib/children/server";
+import { pgUuidArray, queryRows } from "@/lib/neon/query";
+import { redactGrowthHistoryChildSensitiveData } from "@/lib/privacy-server";
 import { getAuthenticatedPetugas } from "@/lib/user/server";
 
 export async function getGrowthHistory(
@@ -17,20 +19,26 @@ export async function getGrowthHistory(
   const registrationStart = new Date(Date.UTC(year, 0, 1)).toISOString();
   const selectedPeriodEnd = new Date(Date.UTC(year, month, 1)).toISOString();
   const oldestDisplayedBirthDate = getOldestDisplayedBirthDate(month, year);
-  const { supabase, posyanduId } = await getAuthenticatedPetugas();
+  const { posyanduId, role } = await getAuthenticatedPetugas();
 
-  const { data: childRows, error: childError } = await supabase
-    .from("balita")
-    .select("id, nama_anak, jenis_kelamin, tanggal_lahir, nik_anak, nama_ayah, nama_ibu, nik_ortu, alamat, rt, rw, nama_posyandu, nama_kelurahan")
-    .eq("posyandu_id", posyanduId)
-    .gte("registered_at", registrationStart)
-    .lt("registered_at", selectedPeriodEnd)
-    .or(`tanggal_lahir.is.null,tanggal_lahir.gte.${oldestDisplayedBirthDate}`)
-    .order("nama_anak", { ascending: true });
+  const childRows = await queryRows<{
+    id: string; nama_anak: string; jenis_kelamin: "L" | "P"; tanggal_lahir: string | null;
+    nik_anak: string | null; nama_ayah: string | null; nama_ibu: string | null;
+    nik_ortu: string | null; alamat: string | null; rt: string | null; rw: string | null;
+    nama_posyandu: string | null; nama_kelurahan: string | null;
+  }>(
+    `select id, nama_anak, jenis_kelamin, tanggal_lahir, nik_anak, nama_ayah, nama_ibu,
+            nik_ortu, alamat, rt, rw, nama_posyandu, nama_kelurahan
+     from balita
+     where posyandu_id = $1
+       and registered_at >= $2::timestamptz
+       and registered_at < $3::timestamptz
+       and (tanggal_lahir is null or tanggal_lahir >= $4::date)
+     order by nama_anak`,
+    [posyanduId, registrationStart, selectedPeriodEnd, oldestDisplayedBirthDate],
+  );
 
-  if (childError) throw childError;
-
-  const children: GrowthHistoryChild[] = (childRows ?? []).map((child) => ({
+  const children: GrowthHistoryChild[] = childRows.map((child) => redactGrowthHistoryChildSensitiveData({
     id: child.id,
     nama: child.nama_anak,
     jenis_kelamin: child.jenis_kelamin,
@@ -44,7 +52,7 @@ export async function getGrowthHistory(
     rw: child.rw,
     nama_posyandu: child.nama_posyandu,
     nama_kelurahan: child.nama_kelurahan,
-  }));
+  }, role));
 
   const requestedChildExists = children.some((child) => child.id === childId);
   const selectedChildId = requestedChildExists ? childId! : children[0]?.id ?? null;
@@ -58,20 +66,20 @@ export async function getGrowthHistory(
     return { children, selectedChildId, measurements: [] };
   }
 
-  const { data: measurementRows, error: measurementError } = await supabase
-    .from("tumbuh_kembang_balita")
-    .select("balita_id, periode_bulan, berat_badan, tinggi_badan, lingkar_kepala, lingkar_lengan")
-    .eq("posyandu_id", posyanduId)
-    .in("balita_id", childIds)
-    .gte("periode_bulan", registrationStart)
-    .lt("periode_bulan", selectedPeriodEnd)
-    .order("periode_bulan", { ascending: true });
-
-  if (measurementError) throw measurementError;
+  const measurementRows = await queryRows<GrowthHistoryMeasurement>(
+    `select balita_id, periode_bulan,
+            berat_badan::float8 as berat_badan, tinggi_badan::float8 as tinggi_badan,
+            lingkar_kepala::float8 as lingkar_kepala, lingkar_lengan::float8 as lingkar_lengan
+     from tumbuh_kembang_balita
+     where posyandu_id = $1 and balita_id = any($2::uuid[])
+       and periode_bulan >= $3::date and periode_bulan < $4::date
+     order by periode_bulan`,
+    [posyanduId, pgUuidArray(childIds), registrationStart, selectedPeriodEnd],
+  );
 
   return {
     children,
     selectedChildId,
-    measurements: (measurementRows ?? []) as GrowthHistoryMeasurement[],
+    measurements: measurementRows,
   };
 }

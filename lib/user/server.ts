@@ -1,7 +1,8 @@
-import { AuthenticationError, getAuthenticatedSupabaseServerClient } from "@/lib/supabase/server";
+import { AuthenticationError } from "@/lib/auth/errors";
+import { neonAuth } from "@/lib/auth/neon";
+import { databaseResult, queryOne } from "@/lib/neon/query";
+import { getDatabaseRequestAuthUserId } from "@/lib/neon/request-context";
 import { canWriteAsKader } from "@/lib/user/permissions";
-
-const tableName = "petugas";
 
 export class AuthorizationError extends Error {
   constructor(message = "Akun petugas belum terhubung ke Posyandu.") {
@@ -11,22 +12,34 @@ export class AuthorizationError extends Error {
 }
 
 export async function getAuthenticatedPetugas() {
-  const supabase = await getAuthenticatedSupabaseServerClient();
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) throw new AuthenticationError();
+  const contextAuthUserId = getDatabaseRequestAuthUserId();
+  let authUserId = contextAuthUserId;
 
-  const { data: petugas, error: petugasError } = await supabase
-    .from(tableName)
-    .select("id, posyandu_id, jenis_petugas")
-    .eq("auth_user_id", authData.user.id)
-    .single();
+  if (authUserId === undefined) {
+    const { data: session, error } = await neonAuth.getSession();
+    if (error || !session?.user) throw new AuthenticationError();
+    authUserId = session.user.id;
+  }
+  if (!authUserId) throw new AuthenticationError();
 
-  if (petugasError) throw petugasError;
+  const petugas = await queryOne<{
+    id: string;
+    posyandu_id: string | null;
+    jenis_petugas: string;
+  }>(
+    `select id, posyandu_id, jenis_petugas
+     from petugas
+     where auth_user_id = $1
+       and is_active = true
+     limit 1`,
+    [authUserId],
+  );
+
+  if (!petugas) throw new AuthorizationError("Akun belum terhubung dengan data petugas aktif.");
   if (!petugas?.posyandu_id) throw new AuthorizationError();
 
   return {
     petugasId: petugas.id as string,
-    supabase,
     posyanduId: petugas.posyandu_id as string,
     role: String(petugas.jenis_petugas ?? ""),
   };
@@ -41,9 +54,24 @@ export async function getAuthenticatedPetugasForWrite() {
 }
 
 export async function getUser() {
-  const supabase = await getAuthenticatedSupabaseServerClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw new AuthenticationError();
+  const contextAuthUserId = getDatabaseRequestAuthUserId();
+  let authUserId = contextAuthUserId;
 
-  return supabase.from(tableName).select("*").eq("auth_user_id", data.user.id).single();
+  if (authUserId === undefined) {
+    const { data: session, error } = await neonAuth.getSession();
+    if (error || !session?.user) throw new AuthenticationError();
+    authUserId = session.user.id;
+  }
+  if (!authUserId) throw new AuthenticationError();
+
+  const data = await queryOne<Record<string, unknown>>(
+    `select id, auth_user_id, posyandu_id, kelurahan_id, nama, jenis_petugas,
+            is_active, nama_kelurahan, nama_posyandu
+     from petugas
+     where auth_user_id = $1 and is_active = true
+     limit 1`,
+    [authUserId],
+  );
+  if (!data) throw new AuthorizationError("Akun belum terhubung dengan data petugas aktif.");
+  return databaseResult(data);
 }

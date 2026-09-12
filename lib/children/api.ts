@@ -12,7 +12,7 @@ export type PaginatedChildren = {
 
 type ChildInput = Omit<
   Child,
-  "id" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
+  "id" | "inactive_at" | "inactive_reason" | "created_by" | "created_by_name" | "created_at" | "registered_at" | "updated_at"
 >;
 
 export function getChildren(page = 1, limit = 10, search?: string, month?: number, year?: number, sort: ChildSort = "name") {
@@ -54,6 +54,24 @@ export function updateChild(id: string, child: ChildInput) {
 
 export function removeChild(id: string) {
   return request<{ message: string }>(`/api/balita/${id}`, { method: "DELETE" });
+}
+
+export function deactivateChild(id: string, inactiveAt: string, inactiveReason: string) {
+  return request<Child>(`/api/balita/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      active: false,
+      inactive_at: inactiveAt,
+      inactive_reason: inactiveReason,
+    }),
+  });
+}
+
+export function reactivateChild(id: string) {
+  return request<Child>(`/api/balita/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ active: true }),
+  });
 }
 
 export function getKelurahan() {

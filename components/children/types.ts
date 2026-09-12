@@ -2,6 +2,8 @@ export type Child = {
   id: string;
   alamat: string;
   hp_ortu: string;
+  inactive_at: string | null;
+  inactive_reason: string | null;
   jenis_kelamin: "L" | "P";
   kelurahan_id: string;
   nama_anak: string;

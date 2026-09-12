@@ -11,6 +11,8 @@ export const childrenData: Child[] = [
     no_urut_anak: 2,
     tanggal_lahir: "2024-04-12",
     jenis_kelamin: "P",
+    inactive_at: null,
+    inactive_reason: null,
     nama_ayah: "Ahmad Zulfikri",
     nama_ibu: "Chairun Nisa",
     nik_ortu: "3174082107980003",
