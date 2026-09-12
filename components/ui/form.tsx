@@ -126,13 +126,23 @@ export function SearchableSelect({
       const rect = button.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom - 8;
       const spaceAbove = rect.top - 8;
-      const estimatedHeight = 320;
-      const openAbove = spaceBelow < Math.min(240, estimatedHeight) && spaceAbove > spaceBelow;
-      setMenuPosition({
+      const menuHeight = menuRef.current?.getBoundingClientRect().height ?? 320;
+      const openAbove = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+      const preferredTop = openAbove
+        ? rect.top - menuHeight - 8
+        : rect.bottom + 8;
+      const nextPosition = {
         left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
-        top: openAbove ? Math.max(8, rect.top - Math.min(estimatedHeight, spaceAbove)) : rect.bottom + 8,
+        top: Math.max(8, Math.min(preferredTop, window.innerHeight - menuHeight - 8)),
         width: rect.width,
-      });
+      };
+      setMenuPosition((current) =>
+        current.left === nextPosition.left &&
+        current.top === nextPosition.top &&
+        current.width === nextPosition.width
+          ? current
+          : nextPosition,
+      );
     }
 
     updateMenuPosition();
@@ -154,7 +164,18 @@ export function SearchableSelect({
         disabled={disabled}
         ref={buttonRef}
         onClick={() => {
-          setIsOpen((current) => !current);
+          setIsOpen((current) => {
+            const willOpen = !current;
+            const rect = buttonRef.current?.getBoundingClientRect();
+            if (willOpen && rect) {
+              setMenuPosition({
+                left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+                top: rect.bottom + 8,
+                width: rect.width,
+              });
+            }
+            return willOpen;
+          });
           setQuery("");
         }}
         type="button"
