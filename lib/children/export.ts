@@ -79,21 +79,39 @@ export function exportChildrenToExcel(children: Child[], options: ExportChildren
   ];
   worksheet["!rows"] = [{ hpt: 28.5 }, { hpt: 28.5 }, {}, { hpt: 60 }];
 
+  const tableBorder = {
+    top: { style: "thin", color: { rgb: "000000" } },
+    bottom: { style: "thin", color: { rgb: "000000" } },
+    left: { style: "thin", color: { rgb: "000000" } },
+    right: { style: "thin", color: { rgb: "000000" } },
+  };
+  const tableAlignment = {
+    horizontal: "center",
+    vertical: "center",
+    wrapText: true,
+  };
   const headerStyle = {
     fill: { patternType: "solid", fgColor: { rgb: "FFFF00" } },
     font: { bold: true, color: { rgb: "000000" }, sz: 14, name: "Calibri" },
-    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-    border: {
-      top: { style: "thin", color: { rgb: "000000" } },
-      bottom: { style: "thin", color: { rgb: "000000" } },
-      left: { style: "thin", color: { rgb: "000000" } },
-      right: { style: "thin", color: { rgb: "000000" } },
-    },
+    alignment: tableAlignment,
+    border: tableBorder,
+  };
+  const dataStyle = {
+    alignment: tableAlignment,
+    border: tableBorder,
   };
 
   for (let column = 0; column < 16; column++) {
     const cellAddress = XLSX.utils.encode_cell({ r: 3, c: column });
     worksheet[cellAddress].s = headerStyle;
+  }
+
+  for (let row = 4; row < rows.length; row++) {
+    for (let column = 0; column < 16; column++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: column });
+      worksheet[cellAddress] ??= { t: "s", v: "" };
+      worksheet[cellAddress].s = dataStyle;
+    }
   }
 
   worksheet["A1"].s = {
