@@ -34,6 +34,13 @@ export function exportGrowthRecordsToExcel({
   posyanduName,
 }: ExportGrowthRecordsOptions) {
   const referenceDate = new Date(year, month, 0);
+  const periodStart = Date.UTC(year, month - 1, 1);
+  const periodEnd = Date.UTC(year, month, 1);
+  const weighedRecords = records.filter((record) => {
+    if (record.berat_badan == null || !record.periode_bulan) return false;
+    const period = new Date(record.periode_bulan).getTime();
+    return period >= periodStart && period < periodEnd;
+  });
   const rows: (string | number)[][] = [
     [`POSYANDU BALITA ${(posyanduName || "").toUpperCase()}`.trim()],
     ["DATA PERTUMBUHAN BALITA"],
@@ -55,7 +62,7 @@ export function exportGrowthRecordsToExcel({
       "TB",
     ],
     ["", "", "", "", "", "AYAH", "IBU"],
-    ...records.map((record, index) => [
+    ...weighedRecords.map((record, index) => [
       index + 1,
       record.nama,
       record.jenis_kelamin,

@@ -54,7 +54,19 @@ export function exportAllGrowthHistories(
   options: { includeSensitiveData?: boolean } = {},
 ) {
   const includeSensitiveData = options.includeSensitiveData ?? true;
-  const measurementByMonth = createMeasurementMap(measurements);
+  const periodStart = Date.UTC(year, 0, 1);
+  const periodEnd = Date.UTC(year, month, 1);
+  const periodMeasurements = measurements.filter((measurement) => {
+    const period = new Date(measurement.periode_bulan).getTime();
+    return period >= periodStart && period < periodEnd;
+  });
+  const weighedChildIds = new Set(
+    periodMeasurements
+      .filter((measurement) => measurement.berat_badan != null)
+      .map((measurement) => measurement.balita_id),
+  );
+  const weighedChildren = children.filter((child) => weighedChildIds.has(child.id));
+  const measurementByMonth = createMeasurementMap(periodMeasurements);
   const firstChild = children[0];
   const rows: (string | number)[][] = [
     [],
@@ -62,7 +74,7 @@ export function exportAllGrowthHistories(
     [`NAMA POSYANDU : ${(firstChild?.nama_posyandu || "").toUpperCase()}`],
     createRegisterHeader(),
     createRegisterSubHeader(),
-    ...children.map((child, index) => {
+    ...weighedChildren.map((child, index) => {
       const row: (string | number)[] = [
         index + 1,
         child.nama,

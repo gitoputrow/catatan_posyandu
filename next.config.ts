@@ -17,6 +17,9 @@ const contentSecurityPolicy = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    reactDebugChannel: false,
+  },
   async headers() {
     return [
       {
